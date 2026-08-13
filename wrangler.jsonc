@@ -1,0 +1,35 @@
+{
+  "$schema": "./node_modules/wrangler/config-schema.json",
+  "name": "hshh-online",
+  "main": "worker/index.ts",
+  "compatibility_date": "2026-08-07",
+  "compatibility_flags": [
+    "nodejs_compat"
+  ],
+  "assets": {
+    "directory": "./dist",
+    "binding": "ASSETS",
+    "not_found_handling": "single-page-application"
+  },
+  "observability": {
+    "enabled": true,
+    "head_sampling_rate": 1
+  },
+  "vars": {
+    "ENVIRONMENT": "production",
+    "SUCCESS_QR_URL": ""
+  },
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "hshh-online",
+      "database_id": "4c85ed49-3545-4ff5-a90d-7372ad2c6b5a"
+    }
+  ],
+  "routes": [
+    {
+      "pattern": "hshh.online",
+      "custom_domain": true
+    }
+  ]
+}
