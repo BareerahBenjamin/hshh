@@ -46,6 +46,14 @@ database.database_name = configuredDatabaseName;
 database.database_id = assertPresent(env, "HSHH_D1_DATABASE_ID");
 config.d1_databases = [database];
 
+const submissionBucket =
+  config.r2_buckets?.find((item) => item.binding === "SUBMISSIONS") ||
+  config.r2_buckets?.[0] ||
+  {};
+submissionBucket.binding = "SUBMISSIONS";
+submissionBucket.bucket_name = assertPresent(env, "HSHH_SUBMISSION_BUCKET_NAME");
+config.r2_buckets = [submissionBucket];
+
 config.routes = [
   {
     pattern: assertPresent(env, "HSHH_DOMAIN"),

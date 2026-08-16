@@ -12,10 +12,12 @@
     "worker:dev": "npm run build && wrangler dev",
     "worker:deploy": "node scripts/deploy-worker.mjs",
     "db:migrate:local": "wrangler d1 migrations apply hshh-online --local",
-    "db:migrate:remote": "npm run cf:sync-env && wrangler d1 migrations apply hshh-online --remote"
+    "db:migrate:remote": "npm run cf:sync-env && wrangler d1 migrations apply hshh-online --remote",
+    "storage:create": "node scripts/create-submission-bucket.mjs"
   },
   "dependencies": {
     "@vitejs/plugin-react": "^5.0.0",
+    "fflate": "^0.8.3",
     "react": "^19.1.0",
     "react-dom": "^19.1.0",
     "typescript": "^5.9.0",

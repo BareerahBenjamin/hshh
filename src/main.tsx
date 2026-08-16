@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState } from "react";
 import { createRoot } from "react-dom/client";
 import heroBannerUrl from "../hero-banner.png";
 import successQrImageUrl from "../success-qr.jpg";
+import { EventAdminDashboard, EventDashboard, JuryAdminDashboard, JuryScoringPage, ProjectAdminPage, ProjectSubmissionPage, VotingPage } from "./event-system";
 import "./styles.css";
 
 type AudiencePayload = {
@@ -32,6 +33,7 @@ type RegistrationRecord = AudiencePayload & {
   submittedAt?: string;
   createdAt?: string;
   updatedAt?: string;
+  checkedInAt?: string | null;
 };
 
 type AppConfig = {
@@ -1054,6 +1056,7 @@ const adminColumns: Array<[string, keyof RegistrationRecord]> = [
   ["后续参与方向", "nextSteps"],
   ["授权确认", "consent"],
   ["联系偏好", "contactPrefs"],
+  ["签到时间", "checkedInAt"],
   ["状态", "status"],
   ["提交时间", "createdAt"],
 ];
@@ -1065,6 +1068,7 @@ function AdminRegistrations() {
   const [error, setError] = useState("");
   const [exporting, setExporting] = useState(false);
   const [deletingId, setDeletingId] = useState("");
+  const [checkingInId, setCheckingInId] = useState("");
 
   const load = async () => {
     try {
@@ -1133,6 +1137,20 @@ function AdminRegistrations() {
     }
   };
 
+  const toggleCheckIn = async (record: RegistrationRecord) => {
+    setCheckingInId(record.id);
+    setError("");
+    try {
+      const result = await api<{ checkedInAt: string | null }>(`/api/admin/registrations/${encodeURIComponent(record.id)}/check-in`, { method: "PATCH" });
+      setData((current) => ({ ...current, items: current.items.map((item) => item.id === record.id ? { ...item, checkedInAt: result.checkedInAt } : item) }));
+      if (selected?.id === record.id) setSelected({ ...selected, checkedInAt: result.checkedInAt });
+    } catch (checkInError) {
+      setError(checkInError instanceof Error ? checkInError.message : "签到状态更新失败");
+    } finally {
+      setCheckingInId("");
+    }
+  };
+
   return (
     <div className="admin-page">
       <header className="admin-head">
@@ -1140,7 +1158,7 @@ function AdminRegistrations() {
           <div className="lead-kicker">admin.dashboard()</div>
           <h1>报名后台</h1>
         </div>
-        <button className="btn primary" type="button" onClick={() => void downloadCsv()} disabled={exporting}>{exporting ? "导出中" : "导出 CSV"}</button>
+        <div className="admin-head__actions"><a className="btn inline-link" href="/admin/projects">项目提交后台</a><a className="btn inline-link" href="/admin/judging">评委评分统计</a><a className="btn inline-link" href="/admin/events">赛事投票后台</a><button className="btn primary" type="button" onClick={() => void downloadCsv()} disabled={exporting}>{exporting ? "导出中" : "导出 CSV"}</button></div>
       </header>
       <div className="admin-toolbar">
         <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="搜索姓名 / 邮箱 / 手机 / 微信 / 城市" />
@@ -1158,6 +1176,7 @@ function AdminRegistrations() {
                 <td>
                   <div className="table-actions">
                     <button className="table-link" type="button" onClick={() => openDetail(item.id)}>详情</button>
+                    <button className="table-link" type="button" onClick={() => void toggleCheckIn(item)} disabled={checkingInId === item.id}>{checkingInId === item.id ? "更新中" : item.checkedInAt ? "取消签到" : "现场签到"}</button>
                     <button className="table-link danger" type="button" onClick={() => void deleteRecord(item)} disabled={deletingId === item.id}>{deletingId === item.id ? "删除中" : "删除"}</button>
                   </div>
                 </td>
@@ -1179,6 +1198,14 @@ function AdminRegistrations() {
 function App() {
   const path = window.location.pathname;
   if (path.startsWith("/success/")) return <SuccessPage id={decodeURIComponent(path.split("/").pop() || "")} />;
+  if (path === "/submit") return <ProjectSubmissionPage />;
+  if (path === "/dashboard") return <EventDashboard />;
+  if (path === "/vote") return <VotingPage />;
+  if (path === "/judge") return <JuryScoringPage />;
+  if (path === "/volunteers") return <VolunteersPage />;
+  if (path === "/admin/projects") return <ProjectAdminPage />;
+  if (path === "/admin/events") return <EventAdminDashboard />;
+  if (path === "/admin/judging") return <JuryAdminDashboard />;
   if (path.startsWith("/admin")) return <AdminRegistrations />;
   return <AudienceForm />;
 }

@@ -26,6 +26,12 @@
       "database_id": "4c85ed49-3545-4ff5-a90d-7372ad2c6b5a"
     }
   ],
+  "r2_buckets": [
+    {
+      "binding": "SUBMISSIONS",
+      "bucket_name": "hshh-submissions"
+    }
+  ],
   "routes": [
     {
       "pattern": "hshh.online",
