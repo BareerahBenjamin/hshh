@@ -119,7 +119,7 @@ const requiredConsent = ["我同意遵守 HsHH 尊重与安全规范", "我同�
 const vidmuseFeedbackOptions = ["帮我更快开始创作", "有些功能不够顺手", "希望增加新的功能或场景", "暂时没有特别感受"];
 const vidmuseFutureInterestOptions = ["非常愿意继续使用", "愿意继续使用", "暂时不确定", "暂时不考虑"];
 const posterSubmissionDeadline = Date.parse("2026-08-15T14:30:00+08:00");
-const juryJudges = ["评委 01", "评委 02", "评委 03", "评委 04", "评委 05", "评委 06"];
+const juryJudges = ["陈曦", "Lashley", "沈彤欣", "卓霖", "刘心爱", "八两", "徐世哲", "张婕", "bala  ", "Reese", "Bella Ren", "Qin_Lynn"];
 const juryTeams = [
   ["me", "Me"],
   ["good-friends", "我的好机友们"],
