@@ -1,70 +1,52 @@
 # HsHH Online
 
-上线范围：观众报名、选手项目提交、全场项目 Dashboard、观众一人一票、志愿者贡献页，以及 Cloudflare Access 保护的管理员后台。
+HsHH 线上赛事系统。当前包含观众报名、作品与海报提交、公开项目看板、观众投票、评委评分、志愿者贡献页，以及由 Cloudflare Access 保护的后台。
+
+线上地址：<https://hshh.online>
+
+## 当前入口
+
+| 页面 | 地址 | 用途 |
+| --- | --- | --- |
+| 观众报名 | `/`、`/audience` | 观众报名、查询报名记录 |
+| 报名成功 | `/success/:id` | 展示报名成功信息及入群二维码 |
+| 作品提交 | `/submit` | 分别提交两版海报与完整路演材料 |
+| 全场项目列表 | `/dashboard` | 公开展示已公开项目 |
+| 观众投票 | `/vote` | 报名手机号核验后，从 18 个固定候选项目中选择一项投票 |
+| 评委评分 | `/judge` | 6 位评委对 18 个项目逐队评分 |
+| 志愿者贡献 | `/volunteers` | 志愿者贡献信息页 |
+| 报名后台 | `/admin` | 报名记录、详情、删除、CSV 导出 |
+| 项目后台 | `/admin/projects` | 项目与海报材料、文件下载、ZIP 打包 |
+| 赛事投票后台 | `/admin/events` | 投票开关、实时票数、投票 CSV 导出 |
+| 评分统计后台 | `/admin/judging` | 评委进度、项目均分、评分 CSV 导出 |
+
+`/admin*` 在线上由 Cloudflare Access 保护；本地开发不启用 Access。
+
+完整域名关系见 [docs/DOMAIN-STRUCTURE.md](/Users/bareerah/Development/herstory%20hackathon/docs/DOMAIN-STRUCTURE.md)，前后端交接见 [docs/HANDOFF.md](/Users/bareerah/Development/herstory%20hackathon/docs/HANDOFF.md)。
+
+## 技术结构
+
+- 前端：Vite + React + TypeScript
+- 后端：Cloudflare Workers（`worker/index.ts`）
+- 关系数据：Cloudflare D1（`hshh-online`）
+- 提交文件：Cloudflare R2（`hshh-submissions`，私有桶）
+- 管理员保护：Cloudflare Access
+- 部署配置：`wrangler.jsonc`
 
 ## 本地运行
 
 1. 安装依赖：`npm install`
-2. 复制并填写环境文件：`cp .env.example .env`
-3. 构建前端：`npm run build`
-4. 初始化本地 D1：`npm run db:migrate:local`
-5. 启动 Worker：`npx wrangler dev --local --port 8787`
-6. 打开：`http://127.0.0.1:8787/audience`
+2. 创建本地配置：`cp .env.example .env`
+3. 初始化本地数据库：`npm run db:migrate:local`
+4. 启动完整本地站点：`npm run worker:dev`
+5. 打开终端显示的本地地址，通常为 `http://127.0.0.1:8787/audience`
 
-本地完整流程请使用 Worker 启动方式；它会同时提供静态页面和本地 D1 API。
+也可只检查构建：`npm run build`。
 
-## 线上部署清单
+## 发布更新
 
-1. 登录 Cloudflare：`npx wrangler login`
-2. 创建 D1：`npx wrangler d1 create hshh-online`
-3. 把返回的 `database_id` 填到 `.env` 的 `HSHH_D1_DATABASE_ID`
-4. 在 `.env` 填写 `HSHH_SUBMISSION_BUCKET_NAME`，然后只需一次执行 `npm run storage:create` 创建 R2 文件桶
-5. 把二维码图片地址填到 `.env` 的 `SUCCESS_QR_URL`
-6. 同步公开配置：`npm run cf:sync-env`
-7. 执行远程迁移：`npm run db:migrate:remote`
-8. 配置 Cloudflare Access，保护路径 `/admin*`，允许管理员邮箱访问
-9. 部署：`npm run worker:deploy`
+1. 有新增 `migrations/*.sql` 时，先执行：`npm run db:migrate:remote`
+2. 发布前后端：`npm run worker:deploy`
+3. 用无痕窗口打开 `https://hshh.online` 验证页面；管理员页面需用 Access 允许的邮箱登录。
 
-`wrangler.jsonc` 已配置 custom domain：`hshh.online`。如果 Cloudflare 账号内还未接入该域名，需要先把域名 DNS 托管到 Cloudflare。
-
-## .env 字段说明
-
-- `ENVIRONMENT`：本地开发用，保持 `development`
-- `HSHH_DEPLOY_ENVIRONMENT`：线上 Worker 用，保持 `production`
-- `HSHH_DOMAIN`：线上域名，默认 `hshh.online`
-- `HSHH_D1_DATABASE_ID`：D1 创建后返回的 database id
-- `HSHH_SUBMISSION_BUCKET_NAME`：赛事提交文件保存使用的 Cloudflare R2 bucket 名称
-- `SUCCESS_QR_URL`：成功页二维码图片 URL
-- `VITE_API_BASE`：只在单独跑 Vite 前端时需要；用 Wrangler 看本地完整站点时保持空
-
-选手提交中的 Pitch PPT 原文件、PDF 备份和 A4 海报电子版会直接上传到私有 R2 文件桶；AIGC Demo 视频只接受 B 站播放页或短链接。公开 Dashboard 只显示海报，不会公开 PPT 文件地址。
-
-## 已实现路由
-
-- `/` 与 `/audience`：观众报名表单
-- `/success/:id`：报名成功页
-- `/admin`：报名后台
-- `/admin/events`：赛事、签到、投票后台
-- `/submit`：选手项目提交
-- `/dashboard`：公开全场项目 Dashboard，不显示排名
-- `/vote`：观众投票页；必须已报名、状态有效、已签到
-- `/volunteers`：志愿者贡献页
-
-## API
-
-- `POST /api/register`
-- `POST /api/lookup`
-- `POST /api/projects`
-- `POST /api/submission-files`
-- `GET /api/submission-files/:key`
-- `GET /api/dashboard`
-- `POST /api/vote/identity`
-- `POST /api/votes`
-- `GET /api/admin/registrations`
-- `GET /api/admin/registrations/:id`
-- `GET /api/admin/export.csv`
-- `PATCH /api/admin/registrations/:id/check-in`
-- `GET /api/admin/event-dashboard`
-- `PUT /api/admin/voting-config`
-- `PATCH /api/admin/projects/:id`
-- `GET /api/admin/votes/export.csv`
+不要将 `.env` 提交到仓库。环境字段和上线检查清单在 [docs/HANDOFF.md](/Users/bareerah/Development/herstory%20hackathon/docs/HANDOFF.md)。

@@ -96,7 +96,7 @@ type ProjectRow = {
 };
 
 type VotingConfigRow = { is_open: number; starts_at: string | null; ends_at: string | null };
-type VoterIdentity = { name?: string; email?: string; wechat?: string; phone?: string };
+type VoterIdentity = { phone?: string };
 type JuryScoreInput = { judgeName?: string; teamKey?: string; scores?: Record<string, unknown> };
 type JuryScoreRow = {
   id: string;
@@ -148,6 +148,10 @@ const juryDimensions = [
   { key: "productization", column: "productization", label: "产品化潜力", english: "Productization", max: 10 },
   { key: "storytelling", column: "storytelling", label: "表达与故事", english: "Storytelling", max: 10 },
 ] as const;
+
+function votingCandidates() {
+  return juryTeams.map(([key, name], index) => ({ id: key, name, number: index + 1 }));
+}
 
 export default {
   async fetch(request: Request, env: WorkerEnv, ctx: ExecutionContext): Promise<Response> {
@@ -536,11 +540,8 @@ async function publicDashboard(env: WorkerEnv) {
 }
 
 async function votingProjects(env: WorkerEnv) {
-  const [config, projects] = await Promise.all([
-    getVotingConfig(env),
-    env.DB.prepare("SELECT * FROM projects WHERE voting_enabled = 1 AND status = 'submitted' ORDER BY project_number ASC").all<ProjectRow>(),
-  ]);
-  return json({ config: votingConfigResponse(config), projects: (projects.results || []).map(rowToPublicProject) });
+  const config = await getVotingConfig(env);
+  return json({ config: votingConfigResponse(config), candidates: votingCandidates() });
 }
 
 async function verifyVoter(request: Request, env: WorkerEnv) {
@@ -548,24 +549,23 @@ async function verifyVoter(request: Request, env: WorkerEnv) {
   const audience = await findAudience(identity, env);
   if (!audience) return json({ eligible: false, alreadyVoted: false, message: "没有找到报名记录，请联系现场工作人员。" }, 404);
   if (audience.status !== "submitted") return json({ eligible: false, alreadyVoted: false, message: "当前报名状态无效，请联系现场工作人员。" }, 403);
-  const vote = await env.DB.prepare("SELECT id FROM votes WHERE audience_id = ? LIMIT 1").bind(audience.id).first<{ id: string }>();
+  const vote = await env.DB.prepare("SELECT id FROM audience_project_votes WHERE audience_id = ? LIMIT 1").bind(audience.id).first<{ id: string }>();
   return json({ eligible: !vote, alreadyVoted: Boolean(vote) });
 }
 
 async function castVote(request: Request, env: WorkerEnv) {
-  const input = await readJson<{ identity?: VoterIdentity; projectId?: string }>(request);
-  const projectId = clean(input.projectId);
+  const input = await readJson<{ identity?: VoterIdentity; candidateId?: string }>(request);
+  const candidateId = clean(input.candidateId);
   const audience = await findAudience(input.identity || {}, env);
   if (!audience) return json({ error: "没有找到报名记录，请联系现场工作人员。" }, 404);
   if (audience.status !== "submitted") return json({ error: "当前报名状态无效，暂不能投票。" }, 403);
   const config = await getVotingConfig(env);
   if (!isVotingOpen(config)) return json({ error: "投票尚未开始或已经结束。" }, 403);
-  const project = await env.DB.prepare("SELECT id FROM projects WHERE id = ? AND voting_enabled = 1 AND status = 'submitted' LIMIT 1").bind(projectId).first<{ id: string }>();
-  if (!project) return json({ error: "该作品当前不在投票名单中。" }, 404);
+  if (!juryTeams.some(([key]) => key === candidateId)) return json({ error: "该作品当前不在投票名单中。" }, 404);
   const now = new Date().toISOString();
   try {
-    await env.DB.prepare("INSERT INTO votes (id, audience_id, project_id, status, created_at, updated_at) VALUES (?, ?, ?, 'valid', ?, ?)")
-      .bind(crypto.randomUUID(), audience.id, project.id, now, now)
+    await env.DB.prepare("INSERT INTO audience_project_votes (id, audience_id, candidate_key, status, created_at, updated_at) VALUES (?, ?, ?, 'valid', ?, ?)")
+      .bind(crypto.randomUUID(), audience.id, candidateId, now, now)
       .run();
   } catch (error) {
     if (isUniqueViolation(error)) return json({ error: "你已完成投票，每位观众仅可投票一次。" }, 409);
@@ -717,24 +717,19 @@ async function adminToggleCheckIn(request: Request, env: WorkerEnv, id: string) 
 async function adminEventDashboard(request: Request, env: WorkerEnv) {
   const denied = requireAccess(request, env);
   if (denied) return denied;
-  const [config, eligible, voted, projectResult] = await Promise.all([
+  const [config, eligible, voted, voteResult] = await Promise.all([
     getVotingConfig(env),
     env.DB.prepare("SELECT COUNT(*) AS count FROM registrations WHERE type = 'audience' AND status = 'submitted'").first<{ count: number }>(),
-    env.DB.prepare("SELECT COUNT(*) AS count FROM votes WHERE status = 'valid'").first<{ count: number }>(),
-    env.DB.prepare(
-      `SELECT p.*, COUNT(v.id) AS valid_votes
-       FROM projects p
-       LEFT JOIN votes v ON v.project_id = p.id AND v.status = 'valid'
-       GROUP BY p.id
-       ORDER BY valid_votes DESC, p.project_number ASC`,
-    ).all<ProjectRow>(),
+    env.DB.prepare("SELECT COUNT(*) AS count FROM audience_project_votes WHERE status = 'valid'").first<{ count: number }>(),
+    env.DB.prepare("SELECT candidate_key, COUNT(*) AS valid_votes FROM audience_project_votes WHERE status = 'valid' GROUP BY candidate_key").all<{ candidate_key: string; valid_votes: number }>(),
   ]);
   const eligibleAudience = eligible?.count || 0;
   const votedAudience = voted?.count || 0;
+  const voteCounts = new Map((voteResult.results || []).map((row) => [row.candidate_key, row.valid_votes]));
   return json({
     config: votingConfigResponse(config),
     stats: { eligibleAudience, votedAudience, voteRate: eligibleAudience ? Math.round((votedAudience / eligibleAudience) * 100) : 0 },
-    projects: (projectResult.results || []).map(rowToProject),
+    candidates: votingCandidates().map((candidate) => ({ ...candidate, validVotes: voteCounts.get(candidate.id) || 0 })),
   });
 }
 
@@ -954,12 +949,13 @@ async function adminExportVotes(request: Request, env: WorkerEnv) {
   const denied = requireAccess(request, env);
   if (denied) return denied;
   const result = await env.DB.prepare(
-    `SELECT v.id, v.audience_id, v.project_id, v.status, v.created_at, p.project_number, p.project_name, p.team_name
-     FROM votes v JOIN projects p ON p.id = v.project_id
-     ORDER BY v.created_at DESC`,
+    "SELECT id, audience_id, candidate_key, status, created_at FROM audience_project_votes ORDER BY created_at DESC",
   ).all<Record<string, unknown>>();
-  const headers = ["vote_id", "audience_id", "project_id", "project_number", "project_name", "team_name", "status", "created_at"];
-  const csv = [headers, ...(result.results || []).map((row) => headers.map((header) => csvValue(row[header === "vote_id" ? "id" : header])))]
+  const candidateNames = new Map<string, string>(votingCandidates().map((candidate) => [candidate.id, candidate.name]));
+  const headers = ["vote_id", "audience_id", "candidate_key", "candidate_name", "status", "created_at"];
+  const csv = [headers, ...(result.results || []).map((row) => headers.map((header) => csvValue(
+    header === "vote_id" ? row.id : header === "candidate_name" ? candidateNames.get(String(row.candidate_key)) || String(row.candidate_key || "") : row[header],
+  )))]
     .map((row) => row.join(","))
     .join("\n");
   return new Response(`\uFEFF${csv}`, { headers: { "content-type": "text/csv; charset=utf-8", "content-disposition": `attachment; filename="hshh-votes-${new Date().toISOString().slice(0, 10)}.csv"` } });
@@ -986,8 +982,8 @@ function isVotingOpen(config: VotingConfigRow) {
 async function findAudience(identity: VoterIdentity, env: WorkerEnv) {
   return env.DB.prepare(
     `SELECT id, status, checked_in_at FROM registrations
-     WHERE type = 'audience' AND lower(name) = ? AND email = ? AND lower(wechat) = ? AND phone = ? LIMIT 1`,
-  ).bind(normalize(identity.name), cleanEmail(identity.email), normalize(cleanWechat(identity.wechat)), cleanPhone(identity.phone))
+     WHERE type = 'audience' AND phone = ? LIMIT 1`,
+  ).bind(cleanPhone(identity.phone))
     .first<{ id: string; status: string; checked_in_at: string | null }>();
 }
 

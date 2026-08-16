@@ -40,7 +40,8 @@ type VotingConfig = {
   endsAt: string | null;
 };
 
-type VoterIdentity = { name: string; email: string; wechat: string; phone: string };
+type VoterIdentity = { phone: string };
+type VotingCandidate = { id: string; name: string; number: number; validVotes?: number };
 type SubmissionUploadKind = "pitch-source" | "pitch-pdf" | "prototype-three-views" | "poster-a4" | "poster-booth";
 type UploadedSubmissionFile = { url: string; fileName: string };
 type JuryDimension = { key: string; label: string; english: string; max: number };
@@ -544,18 +545,18 @@ function formatAdminDate(value: string) {
 }
 
 export function VotingPage() {
-  const [identity, setIdentity] = useState<VoterIdentity>({ name: "", email: "", wechat: "", phone: "" });
+  const [identity, setIdentity] = useState<VoterIdentity>({ phone: "" });
   const [verified, setVerified] = useState(false);
   const [voting, setVoting] = useState<VotingConfig | null>(null);
-  const [projects, setProjects] = useState<Project[]>([]);
-  const [selected, setSelected] = useState<Project | null>(null);
-  const [pending, setPending] = useState<Project | null>(null);
+  const [candidates, setCandidates] = useState<VotingCandidate[]>([]);
+  const [selectedId, setSelectedId] = useState("");
+  const [pending, setPending] = useState<VotingCandidate | null>(null);
   const [message, setMessage] = useState("");
   const [loading, setLoading] = useState(false);
 
   const loadProjects = async () => {
-    const data = await request<{ config: VotingConfig; projects: Project[] }>("/api/voting/projects");
-    setVoting(data.config); setProjects(data.projects);
+    const data = await request<{ config: VotingConfig; candidates: VotingCandidate[] }>("/api/voting/projects");
+    setVoting(data.config); setCandidates(data.candidates);
   };
   useEffect(() => { void loadProjects().catch((error: Error) => setMessage(error.message)); }, []);
   const verify = async (event: React.FormEvent) => {
@@ -571,42 +572,36 @@ export function VotingPage() {
     if (!pending) return;
     setLoading(true); setMessage("");
     try {
-      await request<{ ok: boolean }>("/api/votes", { method: "POST", body: JSON.stringify({ identity, projectId: pending.id }) });
-      setPending(null); setSelected(null); setVerified(false); setMessage("投票成功，感谢参与。");
+      await request<{ ok: boolean }>("/api/votes", { method: "POST", body: JSON.stringify({ identity, candidateId: pending.id }) });
+      setPending(null); setSelectedId(""); setVerified(false); setMessage("投票成功，感谢参与。");
     } catch (error) { setPending(null); setMessage(error instanceof Error ? error.message : "投票失败"); } finally { setLoading(false); }
   };
 
   return (
-    <EventShell kicker="audience.vote()" title="观众最喜爱作品" description="已提交观众报名即可凭报名时填写的信息投票。每位观众仅有一票，提交后不可修改。">
-      <EventSection index="01 / VERIFY" title="验证观众身份" description="请填写报名时的四项信息；系统只用于核验报名与投票资格。">
+    <EventShell kicker="audience.vote()" title="观众最喜爱作品" description="已提交观众报名即可凭报名手机号投票。每位观众仅有一票，提交后不可修改。">
+      <EventSection index="01 / VERIFY" title="验证观众身份" description="请输入报名时填写的手机号；系统只用于核验报名与投票资格。">
         <form className="event-form event-identity" onSubmit={verify}>
-          <div className="grid-2">
-            <EventField label="姓名 / 昵称"><input value={identity.name} onChange={(event) => setIdentity({ ...identity, name: event.target.value })} required /></EventField>
-            <EventField label="联系邮箱"><input type="email" value={identity.email} onChange={(event) => setIdentity({ ...identity, email: event.target.value })} required /></EventField>
-            <EventField label="微信号"><input value={identity.wechat} onChange={(event) => setIdentity({ ...identity, wechat: event.target.value })} autoCapitalize="none" autoCorrect="off" spellCheck={false} required /></EventField>
-            <EventField label="手机号"><input type="tel" inputMode="numeric" maxLength={11} value={identity.phone} onChange={(event) => setIdentity({ ...identity, phone: event.target.value.replace(/\D/g, "").slice(0, 11) })} required /></EventField>
-          </div>
+          <EventField label="报名手机号"><input type="tel" inputMode="numeric" maxLength={11} pattern="^1[3-9]\d{9}$" value={identity.phone} onChange={(event) => setIdentity({ phone: event.target.value.replace(/\D/g, "").slice(0, 11) })} placeholder="13800000000" required /></EventField>
           <div className="event-actions"><button className="btn primary" type="submit" disabled={loading}>{loading ? "验证中" : "验证并进入投票"}</button></div>
         </form>
       </EventSection>
       {message ? <div className="event-message" role="status">{message}</div> : null}
-      {verified ? <EventSection index="02 / VOTE" title="选择妳最喜爱的作品" description={voting?.isOpen ? "选择一项作品后，需要再次确认。" : "投票尚未开始或已结束。"}>
+      {verified ? <EventSection index="02 / VOTE" title="选择妳最喜爱的作品" description={voting?.isOpen ? "请从 18 个项目中选择一项，确认后不可修改。" : "投票尚未开始或已结束。"}>
         {!voting?.isOpen ? <p className="event-empty">投票尚未开始或已经结束，请以现场通知为准。</p> : null}
-        {voting?.isOpen && projects.length === 0 ? <p className="event-empty">投票名单准备中，请稍后刷新。</p> : null}
-        <div className="project-grid project-grid--vote">{projects.map((project) => <ProjectCard key={project.id} project={project} selectable selected={selected?.id === project.id} onSelect={() => setSelected(project)} />)}</div>
-        {voting?.isOpen ? <div className="event-actions"><button className="btn primary" type="button" disabled={!selected || loading} onClick={() => selected && setPending(selected)}>确认投票</button></div> : null}
+        {voting?.isOpen && candidates.length === 0 ? <p className="event-empty">投票名单准备中，请稍后刷新。</p> : null}
+        {voting?.isOpen && candidates.length ? <div className="event-form vote-select-form"><EventField label="选择一个项目"><select value={selectedId} onChange={(event) => setSelectedId(event.target.value)} required><option value="" disabled>请选择项目</option>{candidates.map((candidate) => <option key={candidate.id} value={candidate.id}>#{String(candidate.number).padStart(2, "0")} {candidate.name}</option>)}</select></EventField><div className="event-actions"><button className="btn primary" type="button" disabled={!selectedId || loading} onClick={() => setPending(candidates.find((candidate) => candidate.id === selectedId) || null)}>确认投票</button></div></div> : null}
       </EventSection> : null}
       <VoteConfirmModal project={pending} loading={loading} onClose={() => setPending(null)} onConfirm={() => void vote()} />
     </EventShell>
   );
 }
 
-function VoteConfirmModal(props: { project: Project | null; loading: boolean; onClose: () => void; onConfirm: () => void }) {
+function VoteConfirmModal(props: { project: VotingCandidate | null; loading: boolean; onClose: () => void; onConfirm: () => void }) {
   if (!props.project) return null;
-  return <div className="event-modal" role="presentation"><section className="notice-panel" role="dialog" aria-modal="true" aria-labelledby="voteConfirmTitle"><div className="notice-head"><div className="lead-kicker">confirm.vote()</div><h2 id="voteConfirmTitle">确认投票</h2></div><div className="notice-body"><p className="event-modal-copy">确认将唯一一票投给 <strong>{props.project.projectName}</strong> 吗？提交后不可修改。</p><div className="notice-actions"><button className="btn" type="button" onClick={props.onClose} disabled={props.loading}>返回选择</button><button className="btn primary" type="button" onClick={props.onConfirm} disabled={props.loading}>{props.loading ? "提交中" : "确认投票"}</button></div></div></section></div>;
+  return <div className="event-modal" role="presentation"><section className="notice-panel" role="dialog" aria-modal="true" aria-labelledby="voteConfirmTitle"><div className="notice-head"><div className="lead-kicker">confirm.vote()</div><h2 id="voteConfirmTitle">确认投票</h2></div><div className="notice-body"><p className="event-modal-copy">确认将唯一一票投给 <strong>{props.project.name}</strong> 吗？提交后不可修改。</p><div className="notice-actions"><button className="btn" type="button" onClick={props.onClose} disabled={props.loading}>返回选择</button><button className="btn primary" type="button" onClick={props.onConfirm} disabled={props.loading}>{props.loading ? "提交中" : "确认投票"}</button></div></div></section></div>;
 }
 
-type AdminEventData = { config: VotingConfig; stats: { eligibleAudience: number; votedAudience: number; voteRate: number }; projects: Array<Project & { validVotes: number }> };
+type AdminEventData = { config: VotingConfig; stats: { eligibleAudience: number; votedAudience: number; voteRate: number }; candidates: VotingCandidate[] };
 
 export function EventAdminDashboard() {
   const [data, setData] = useState<AdminEventData | null>(null);
@@ -615,9 +610,8 @@ export function EventAdminDashboard() {
   const load = async () => { try { setData(await request<AdminEventData>("/api/admin/event-dashboard")); } catch (error) { setMessage(error instanceof Error ? error.message : "无法加载赛事后台"); } };
   useEffect(() => { void load(); }, []);
   const updateConfig = async (isOpen: boolean) => { setLoading(true); try { await request("/api/admin/voting-config", { method: "PUT", body: JSON.stringify({ isOpen }) }); await load(); } catch (error) { setMessage(error instanceof Error ? error.message : "更新失败"); } finally { setLoading(false); } };
-  const toggleProject = async (project: Project) => { setLoading(true); try { await request(`/api/admin/projects/${project.id}`, { method: "PATCH", body: JSON.stringify({ votingEnabled: !project.votingEnabled }) }); await load(); } catch (error) { setMessage(error instanceof Error ? error.message : "更新失败"); } finally { setLoading(false); } };
   const exportVotes = () => { window.location.assign(`${apiBase}/api/admin/votes/export.csv`); };
-  return <div className="admin-page event-admin"><header className="admin-head"><div><div className="lead-kicker">admin.event()</div><h1>赛事与投票后台</h1></div><div className="admin-head__actions"><a className="btn inline-link" href="/admin/judging">评委评分统计</a><button className="btn primary" type="button" onClick={exportVotes}>导出投票 CSV</button></div></header>{message ? <div className="admin-error">{message}</div> : null}{data ? <><section className="admin-event-stats"><div><strong>{data.stats.eligibleAudience}</strong><span>已报名观众</span></div><div><strong>{data.stats.votedAudience}</strong><span>已投票</span></div><div><strong>{data.stats.voteRate}%</strong><span>投票率</span></div><div><strong>{data.config.isOpen ? "进行中" : "已关闭"}</strong><span>投票状态</span></div></section><div className="admin-toolbar"><button className="btn primary" type="button" disabled={loading || data.config.isOpen} onClick={() => void updateConfig(true)}>开启投票</button><button className="btn" type="button" disabled={loading || !data.config.isOpen} onClick={() => void updateConfig(false)}>关闭投票</button><button className="btn" type="button" onClick={() => void load()}>刷新数据</button></div><div className="admin-table-wrap"><table className="admin-table admin-event-table"><thead><tr><th>编号</th><th>项目</th><th>团队</th><th>作品状态</th><th>有效票数</th><th>投票名单</th></tr></thead><tbody>{data.projects.map((project) => <tr key={project.id}><td>#{String(project.projectNumber).padStart(2, "0")}</td><td>{project.projectName}</td><td>{project.teamName}</td><td>{project.status}</td><td>{project.validVotes}</td><td><button className="table-link" type="button" disabled={loading} onClick={() => void toggleProject(project)}>{project.votingEnabled ? "移出投票名单" : "加入投票名单"}</button></td></tr>)}{data.projects.length === 0 ? <tr><td colSpan={6}>暂无选手提交</td></tr> : null}</tbody></table></div></> : <p className="event-empty">正在读取赛事数据…</p>}</div>;
+  return <div className="admin-page event-admin"><header className="admin-head"><div><div className="lead-kicker">admin.event()</div><h1>赛事与投票后台</h1></div><div className="admin-head__actions"><a className="btn inline-link" href="/admin/judging">评委评分统计</a><button className="btn primary" type="button" onClick={exportVotes}>导出投票 CSV</button></div></header>{message ? <div className="admin-error">{message}</div> : null}{data ? <><section className="admin-event-stats"><div><strong>{data.stats.eligibleAudience}</strong><span>已报名观众</span></div><div><strong>{data.stats.votedAudience}</strong><span>已投票</span></div><div><strong>{data.stats.voteRate}%</strong><span>投票率</span></div><div><strong>{data.config.isOpen ? "进行中" : "已关闭"}</strong><span>投票状态</span></div></section><div className="admin-toolbar"><button className="btn primary" type="button" disabled={loading || data.config.isOpen} onClick={() => void updateConfig(true)}>开启投票</button><button className="btn" type="button" disabled={loading || !data.config.isOpen} onClick={() => void updateConfig(false)}>关闭投票</button><button className="btn" type="button" onClick={() => void load()}>刷新数据</button></div><div className="admin-table-wrap"><table className="admin-table admin-event-table"><thead><tr><th>编号</th><th>投票项目</th><th>有效票数</th></tr></thead><tbody>{data.candidates.map((candidate) => <tr key={candidate.id}><td>#{String(candidate.number).padStart(2, "0")}</td><td>{candidate.name}</td><td>{candidate.validVotes || 0}</td></tr>)}</tbody></table></div></> : <p className="event-empty">正在读取赛事数据…</p>}</div>;
 }
 
 function scoreText(value: number | null | undefined) {
