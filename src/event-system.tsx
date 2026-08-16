@@ -283,7 +283,7 @@ export function ProjectSubmissionPage() {
         </EventSection>
         <EventSection index="03 / DEMO" title="Demo 与视频" description="请确保现场工作人员和评委可以直接打开、理解并演示作品。">
           <div className="qa-stack">
-            <EventField label="Demo 可访问链接 *"><input type="url" value={form.demoUrl} onChange={(event) => set("demoUrl", event.target.value.trim())} placeholder="https://..." required /></EventField>
+            <EventField label="GitHub 链接 *"><input type="url" value={form.demoUrl} onChange={(event) => set("demoUrl", event.target.value.trim())} placeholder="https://..." required /></EventField>
             <EventField label="Demo 操作说明 *"><textarea value={form.demoInstructions} onChange={(event) => set("demoInstructions", event.target.value)} placeholder="从打开链接到展示核心功能的操作步骤；如依赖硬件或本地环境，请写清楚。" required /></EventField>
             <EventField label="AIGC Demo 视频 B 站链接 *" hint="3 分钟以内，展示核心功能与实际效果；支持 bilibili.com 和 b23.tv 链接。"><input type="url" value={form.demoVideoUrl} onChange={(event) => set("demoVideoUrl", event.target.value.trim())} placeholder="https://www.bilibili.com/video/..." required /></EventField>
             <div className="vidmuse-feedback">
@@ -553,6 +553,7 @@ export function VotingPage() {
   const [pending, setPending] = useState<VotingCandidate | null>(null);
   const [message, setMessage] = useState("");
   const [loading, setLoading] = useState(false);
+  const [notice, setNotice] = useState<{ title: string; text: string; toAudience: boolean } | null>(null);
 
   const loadProjects = async () => {
     const data = await request<{ config: VotingConfig; candidates: VotingCandidate[] }>("/api/voting/projects");
@@ -562,11 +563,16 @@ export function VotingPage() {
   const verify = async (event: React.FormEvent) => {
     event.preventDefault(); setLoading(true); setMessage("");
     try {
-      const result = await request<{ eligible: boolean; alreadyVoted: boolean; message?: string }>("/api/vote/identity", { method: "POST", body: JSON.stringify(identity) });
-      if (result.alreadyVoted) { setMessage("你已完成投票，每位观众仅可投票一次。"); return; }
-      if (!result.eligible) { setMessage(result.message || "当前不具备投票资格，请联系现场工作人员。"); return; }
-      setVerified(true); await loadProjects();
-    } catch (error) { setMessage(error instanceof Error ? error.message : "身份验证失败"); } finally { setLoading(false); }
+      const response = await fetch(`${apiBase}/api/vote/identity`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ phone: identity.phone }),
+      });
+      const data = (await response.json().catch(() => ({}))) as { eligible?: boolean; alreadyVoted?: boolean };
+      if (response.ok && data.alreadyVoted) { setNotice({ title: "投票提示", text: "你已完成投票，每位观众仅可投票一次。", toAudience: false }); return; }
+      if (response.ok && data.eligible) { setVerified(true); await loadProjects(); return; }
+      setNotice({ title: "身份验证未通过", text: "身份验证未通过，请先完成观众报名。", toAudience: true });
+    } catch (error) { setNotice({ title: "身份验证未通过", text: "身份验证未通过，请先完成观众报名。", toAudience: true }); } finally { setLoading(false); }
   };
   const vote = async () => {
     if (!pending) return;
@@ -592,8 +598,13 @@ export function VotingPage() {
         {voting?.isOpen && candidates.length ? <div className="event-form vote-select-form"><EventField label="选择一个项目"><select value={selectedId} onChange={(event) => setSelectedId(event.target.value)} required><option value="" disabled>请选择项目</option>{candidates.map((candidate) => <option key={candidate.id} value={candidate.id}>#{String(candidate.number).padStart(2, "0")} {candidate.name}</option>)}</select></EventField><div className="event-actions"><button className="btn primary" type="button" disabled={!selectedId || loading} onClick={() => setPending(candidates.find((candidate) => candidate.id === selectedId) || null)}>确认投票</button></div></div> : null}
       </EventSection> : null}
       <VoteConfirmModal project={pending} loading={loading} onClose={() => setPending(null)} onConfirm={() => void vote()} />
+      {notice ? <NoticeModal title={notice.title} message={notice.text} actionLabel={notice.toAudience ? "去报名" : "知道了"} onAction={() => { if (notice.toAudience) { window.location.assign("/audience"); } else { setNotice(null); } }} /> : null}
     </EventShell>
   );
+}
+
+function NoticeModal(props: { title: string; message: string; actionLabel: string; onAction: () => void }) {
+  return <div className="event-modal" role="presentation"><section className="notice-panel" role="dialog" aria-modal="true" aria-labelledby="noticeTitle"><div className="notice-head"><div className="lead-kicker">audience.vote()</div><h2 id="noticeTitle">{props.title}</h2></div><div className="notice-body"><p className="event-modal-copy">{props.message}</p><div className="notice-actions"><button className="btn primary" type="button" onClick={props.onAction}>{props.actionLabel}</button></div></div></section></div>;
 }
 
 function VoteConfirmModal(props: { project: VotingCandidate | null; loading: boolean; onClose: () => void; onConfirm: () => void }) {
