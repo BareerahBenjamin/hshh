@@ -400,7 +400,7 @@ export function ProjectSubmissionPage() {
             {form.marketingChannels.includes("tuya") ? (
               <div className="marketing-part">
                 <div className="marketing-part__head"><h3>方式一：涂鸦智能小红书宣发</h3><p>适用于使用涂鸦智能硬件的项目。</p></div>
-                <div className="digikey-copy-row"><div className="digikey-title">#涂鸦智能 #涂鸦开发者 #T5AI #HerstoryHardwareHackathon #HerstoryHardwareHub #hshh</div><CopyButton text="#涂鸦智能 #涂鸦开发者 #T5AI #HerstoryHardwareHackathon #HerstoryHardwareHub #hshh" label="一键复制标签" /></div>
+                <div className="digikey-copy-row"><div className="digikey-title">#涂鸦智能 #涂鸦开发者 #T5AI #HsHH</div><CopyButton text="#涂鸦智能 #HsHH" label="复制标签" /></div>
                 <EventField label="小红书帖子链接 *"><input type="url" value={form.tuyaPostUrl} onChange={(event) => set("tuyaPostUrl", event.target.value.trim())} placeholder="https://www.xiaohongshu.com/explore/..." required /></EventField>
                 <label className="choice event-confirm"><input type="checkbox" checked={form.tuyaPostConfirmed} onChange={(event) => set("tuyaPostConfirmed", event.target.checked)} /><span>已确认帖子可以正常访问 *</span></label>
               </div>
@@ -422,7 +422,7 @@ export function ProjectSubmissionPage() {
             ) : null}
             <div className="marketing-part">
               <div className="marketing-part__head"><h3>二、Demo 视频宣发</h3><p>请将 Pitch 使用的 Demo 视频发布至小红书，并添加以下标签：</p></div>
-              <div className="digikey-copy-row"><div className="digikey-title">#HerstoryHardwareHackathon #HerstoryHardwareHub #hshh #vidmuse</div><CopyButton text="#HerstoryHardwareHackathon #HerstoryHardwareHub #hshh #vidmuse" label="复制标签" /></div>
+              <div className="digikey-copy-row"><div className="digikey-title">#HsHH #vidmuse</div><CopyButton text="#HsHH #vidmuse" label="复制标签" /></div>
               <div className="vidmuse-feedback">
                 <div className="vidmuse-feedback__head">
                   <h3>VidMuse 使用小记</h3>
