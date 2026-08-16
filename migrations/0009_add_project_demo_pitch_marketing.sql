@@ -1,0 +1,10 @@
+ALTER TABLE projects ADD COLUMN demo_hardware_video_url TEXT;
+ALTER TABLE projects ADD COLUMN pitch_html_url TEXT;
+ALTER TABLE projects ADD COLUMN marketing_channels TEXT;
+ALTER TABLE projects ADD COLUMN tuya_post_url TEXT;
+ALTER TABLE projects ADD COLUMN tuya_post_confirmed INTEGER NOT NULL DEFAULT 0;
+ALTER TABLE projects ADD COLUMN digikey_post_url TEXT;
+ALTER TABLE projects ADD COLUMN digikey_post_confirmed INTEGER NOT NULL DEFAULT 0;
+ALTER TABLE projects ADD COLUMN digikey_materials TEXT;
+ALTER TABLE projects ADD COLUMN demo_video_marketing_url TEXT;
+ALTER TABLE projects ADD COLUMN demo_video_playback_confirmed INTEGER NOT NULL DEFAULT 0;

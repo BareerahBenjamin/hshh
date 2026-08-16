@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import heroBannerUrl from "../hero-banner.png";
 
 const apiBase = import.meta.env.VITE_API_BASE || "";
@@ -16,8 +16,10 @@ type Project = {
   demoUrl: string;
   demoInstructions: string;
   demoVideoUrl: string;
+  demoHardwareVideoUrl: string;
   pitchSourceUrl: string;
   pitchPdfUrl: string;
+  pitchHtmlUrl: string;
   prototypeThreeViewsUrl: string;
   posterUrl: string;
   posterBoothUrl: string;
@@ -25,6 +27,14 @@ type Project = {
   vidmuseFeedbackTags: string[];
   vidmuseFeedbackNote: string;
   vidmuseFutureInterest: string;
+  marketingChannels: string[];
+  tuyaPostUrl: string;
+  tuyaPostConfirmed: boolean;
+  digikeyPostUrl: string;
+  digikeyPostConfirmed: boolean;
+  digikeyMaterials: string;
+  demoVideoMarketingUrl: string;
+  demoVideoPlaybackConfirmed: boolean;
   status: string;
   isPublic: boolean;
   votingEnabled: boolean;
@@ -42,7 +52,7 @@ type VotingConfig = {
 
 type VoterIdentity = { phone: string };
 type VotingCandidate = { id: string; name: string; number: number; validVotes?: number };
-type SubmissionUploadKind = "pitch-source" | "pitch-pdf" | "prototype-three-views" | "poster-a4" | "poster-booth";
+type SubmissionUploadKind = "pitch-source" | "pitch-pdf" | "pitch-html" | "prototype-three-views" | "poster-a4" | "poster-booth";
 type UploadedSubmissionFile = { url: string; fileName: string };
 type JuryDimension = { key: string; label: string; english: string; max: number };
 type JuryTeam = { key: string; name: string; number: number };
@@ -62,8 +72,10 @@ const emptyProject: ProjectForm = {
   demoUrl: "",
   demoInstructions: "",
   demoVideoUrl: "",
+  demoHardwareVideoUrl: "",
   pitchSourceUrl: "",
   pitchPdfUrl: "",
+  pitchHtmlUrl: "",
   prototypeThreeViewsUrl: "",
   posterUrl: "",
   posterBoothUrl: "",
@@ -71,6 +83,14 @@ const emptyProject: ProjectForm = {
   vidmuseFeedbackTags: [],
   vidmuseFeedbackNote: "",
   vidmuseFutureInterest: "",
+  marketingChannels: [],
+  tuyaPostUrl: "",
+  tuyaPostConfirmed: false,
+  digikeyPostUrl: "",
+  digikeyPostConfirmed: false,
+  digikeyMaterials: "",
+  demoVideoMarketingUrl: "",
+  demoVideoPlaybackConfirmed: false,
 };
 
 const vidmuseFeedbackOptions = [
@@ -93,10 +113,25 @@ const requiredProjectTextFields = [
   "demoUrl",
   "demoInstructions",
   "demoVideoUrl",
-  "pitchSourceUrl",
+  "demoHardwareVideoUrl",
   "pitchPdfUrl",
   "prototypeThreeViewsUrl",
 ] as const;
+
+const projectFieldLabels: Record<string, string> = {
+  projectName: "项目名称",
+  teamName: "团队名称",
+  oneLiner: "一句话介绍",
+  targetUsers: "目标用户",
+  applicationScenarios: "应用场景",
+  coreFeatures: "核心功能",
+  demoUrl: "GitHub 链接",
+  demoInstructions: "Demo 操作说明",
+  demoVideoUrl: "Demo 产品概念视频",
+  demoHardwareVideoUrl: "Demo 硬件实物视频",
+  pitchPdfUrl: "Pitch PPT PDF 备份",
+  prototypeThreeViewsUrl: "硬件实物 / 原型（三视图）",
+};
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const response = await fetch(`${apiBase}${path}`, {
@@ -180,6 +215,20 @@ function UploadField(props: {
   );
 }
 
+function CopyButton(props: { text: string; label: string }) {
+  const [copied, setCopied] = useState(false);
+  const copy = async () => {
+    try {
+      await navigator.clipboard.writeText(props.text);
+      setCopied(true);
+      window.setTimeout(() => setCopied(false), 2000);
+    } catch {
+      setCopied(false);
+    }
+  };
+  return <button className="btn" type="button" onClick={() => void copy()}>{copied ? "已复制" : props.label}</button>;
+}
+
 function EventSection(props: { index: string; badge?: string; title: string; description?: string; children: React.ReactNode }) {
   return (
     <section className="section event-section">
@@ -204,6 +253,10 @@ export function ProjectSubmissionPage() {
   const [submitting, setSubmitting] = useState<"poster" | "materials" | null>(null);
   const [posterFeedback, setPosterFeedback] = useState<{ kind: "success" | "error"; text: string } | null>(null);
   const [now, setNow] = useState(() => Date.now());
+  const [step, setStep] = useState<1 | 2>(1);
+  const messageRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => { if (message) messageRef.current?.scrollIntoView({ behavior: "smooth", block: "center" }); }, [message]);
 
   useEffect(() => { localStorage.setItem("hshh-project-submission-draft", JSON.stringify(form)); }, [form]);
   useEffect(() => {
@@ -216,12 +269,31 @@ export function ProjectSubmissionPage() {
   const submitMaterials = async (event: React.FormEvent) => {
     event.preventDefault();
     setMessage("");
-    if (requiredProjectTextFields.some((key) => !form[key].trim()) || form.teamMembers.length === 0) {
-      setMessage("请完成项目、Demo 与路演材料的必填项。");
+    if (form.teamMembers.length === 0 || requiredProjectTextFields.some((key) => !form[key].trim())) {
+      const missing = requiredProjectTextFields.filter((key) => !form[key].trim()).map((key) => projectFieldLabels[key] || key);
+      if (form.teamMembers.length === 0) missing.unshift("团队成员");
+      setMessage(`还有必填项未完成：${missing.join("、")}。请先返回上一步补齐后，再提交。`);
+      setStep(1);
       return;
     }
     if (!form.vidmuseFeedbackTags.length || !form.vidmuseFutureInterest || !form.vidmuseFeedbackNote.trim()) {
       setMessage("请完成 VidMuse 使用小记中的两项选择题和文字反馈。");
+      return;
+    }
+    if (!form.marketingChannels.length) {
+      setMessage("请至少选择一种产品内容宣发方式。");
+      return;
+    }
+    if (form.marketingChannels.includes("tuya") && (!form.tuyaPostUrl.trim() || !form.tuyaPostConfirmed)) {
+      setMessage("请填写方式一（涂鸦智能小红书宣发）帖子链接，并确认帖子可以正常访问。");
+      return;
+    }
+    if (form.marketingChannels.includes("digikey") && (!form.digikeyPostUrl.trim() || !form.digikeyPostConfirmed)) {
+      setMessage("请填写方式二（DigiKey 社区宣发）帖子链接，并确认帖子可以正常访问。");
+      return;
+    }
+    if (!form.demoVideoMarketingUrl.trim() || !form.demoVideoPlaybackConfirmed) {
+      setMessage("请填写小红书 Demo 视频链接，并确认视频可以正常播放。");
       return;
     }
     setSubmitting("materials");
@@ -231,13 +303,25 @@ export function ProjectSubmissionPage() {
     } catch (error) { setMessage(error instanceof Error ? error.message : "提交失败"); } finally { setSubmitting(null); }
   };
 
+  const goNext = () => {
+    setMessage("");
+    if (form.teamMembers.length === 0 || requiredProjectTextFields.some((key) => !form[key].trim())) {
+      const missing = requiredProjectTextFields.filter((key) => !form[key].trim()).map((key) => projectFieldLabels[key] || key);
+      if (form.teamMembers.length === 0) missing.unshift("团队成员");
+      setMessage(`还有必填项未完成：${missing.join("、")}。`);
+      return;
+    }
+    setStep(2);
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  };
+
   const submitPosters = async () => {
     setMessage("");
     setPosterFeedback(null);
-    if (posterSubmissionClosed) {
-      setPosterFeedback({ kind: "error", text: "两版电子海报提交已于 8 月 15 日 14:00 截止。" });
-      return;
-    }
+    // if (posterSubmissionClosed) {
+    //   setPosterFeedback({ kind: "error", text: "两版电子海报提交已于 8 月 15 日 14:00 截止。" });
+    //   return;
+    // }
     if (!form.projectName.trim() || !form.teamName.trim()) {
       setPosterFeedback({ kind: "error", text: "请先填写项目名称和团队名称，再提交海报。" });
       return;
@@ -255,19 +339,21 @@ export function ProjectSubmissionPage() {
 
   return (
     <EventShell kicker="project.submit()" title="赛事作品提交" description="海报与项目材料分开提交：两版海报须于 8 月 15 日 14:00 前完成，作品材料须于 8 月 16 日 16:00 前完成。相同团队名称会合并为同一项目。">
-      <form className="event-form" onSubmit={submitMaterials}>
-        <EventSection index="01 / POSTER" title="产品宣发海报" description="先提交两版海报即可；只需要填写下方的项目名称和团队名称，用于后续合并作品材料。">
-          <div className="deadline-banner" role="note"><span>两版电子海报提交截止</span><strong>8 月 15 日 14:00</strong><p>请在截止前上传 A4 与展位尺寸电子版；逾期海报无法进入全场 Dashboard 和路演展位展示。</p>{posterSubmissionClosed ? <b className="deadline-banner__closed">提交已截止</b> : null}</div>
+      <form className="event-form" noValidate onSubmit={submitMaterials}>
+        {step === 1 ? (
+          <>
+        <EventSection index="01 / POSTER" title="基本信息" description="先提交两版海报即可；只需要填写下方的项目名称和团队名称，用于后续合并作品材料。">
+          {/* <div className="deadline-banner" role="note"><span>两版电子海报提交截止</span><strong>8 月 15 日 14:00</strong><p>请在截止前上传 A4 与展位尺寸电子版；逾期海报无法进入全场 Dashboard 和路演展位展示。</p>{posterSubmissionClosed ? <b className="deadline-banner__closed">提交已截止</b> : null}</div> */}
           <div className="qa-stack">
             <div className="grid-2 project-info-grid">
               <EventField label="项目名称 *"><input value={form.projectName} onChange={(event) => set("projectName", event.target.value.slice(0, 80))} required /></EventField>
               <EventField label="团队名称 *" hint="这是两次提交的共同标识，请保持一致。"><input value={form.teamName} onChange={(event) => set("teamName", event.target.value.slice(0, 80))} required /></EventField>
             </div>
-            <UploadField label="A4 产品宣发海报电子版 *" hint="适配笔记本电脑尺寸；支持 JPG / PNG / WebP，最大 10MB。" kind="poster-a4" accept=".jpg,.jpeg,.png,.webp,image/jpeg,image/png,image/webp" value={form.posterUrl} onUploaded={({ url }) => set("posterUrl", url)} />
-            <UploadField label="展位产品宣发海报电子版 *" hint="规格 0.8m × 2m，用于路演当天展位展示；支持 JPG / PNG / WebP，最大 10MB。" kind="poster-booth" accept=".jpg,.jpeg,.png,.webp,image/jpeg,image/png,image/webp" value={form.posterBoothUrl} onUploaded={({ url }) => set("posterBoothUrl", url)} />
-            <label className="choice event-confirm"><input type="checkbox" checked={form.posterPrintConfirmed} onChange={(event) => set("posterPrintConfirmed", event.target.checked)} /><span>我确认已准备 A4 规格及 0.8m × 2m 规格的纸质海报。 *</span></label>
-            <div className="section-submit"><button className="btn primary" type="button" onClick={() => void submitPosters()} disabled={submitting !== null || posterSubmissionClosed}>{submitting === "poster" ? "海报提交中" : posterSubmissionClosed ? "海报提交已截止" : "提交两版海报"}</button><span>海报单独保存，不需要等待 Demo、视频或路演材料完成。</span></div>
-            {posterFeedback ? <div className={`section-feedback is-${posterFeedback.kind}`} role={posterFeedback.kind === "error" ? "alert" : "status"}>{posterFeedback.text}</div> : null}
+            {/* <UploadField label="A4 产品宣发海报电子版 *" hint="适配笔记本电脑尺寸；支持 JPG / PNG / WebP，最大 10MB。" kind="poster-a4" accept=".jpg,.jpeg,.png,.webp,image/jpeg,image/png,image/webp" value={form.posterUrl} onUploaded={({ url }) => set("posterUrl", url)} />
+            <UploadField label="展位产品宣发海报电子版 *" hint="规格 0.8m × 2m，用于路演当天展位展示；支持 JPG / PNG / WebP，最大 10MB。" kind="poster-booth" accept=".jpg,.jpeg,.png,.webp,image/jpeg,image/png,image/webp" value={form.posterBoothUrl} onUploaded={({ url }) => set("posterBoothUrl", url)} /> */}
+            {/* <label className="choice event-confirm"><input type="checkbox" checked={form.posterPrintConfirmed} onChange={(event) => set("posterPrintConfirmed", event.target.checked)} /><span>我确认已准备 A4 规格及 0.8m × 2m 规格的纸质海报。 *</span></label> */}
+            {/* <div className="section-submit"><button className="btn primary" type="button" onClick={() => void submitPosters()} disabled={submitting !== null || posterSubmissionClosed}>{submitting === "poster" ? "海报提交中" : posterSubmissionClosed ? "海报提交已截止" : "提交两版海报"}</button><span>海报单独保存，不需要等待 Demo、视频或路演材料完成。</span></div> */}
+            {/* {posterFeedback ? <div className={`section-feedback is-${posterFeedback.kind}`} role={posterFeedback.kind === "error" ? "alert" : "status"}>{posterFeedback.text}</div> : null} */}
           </div>
         </EventSection>
         <EventSection index="02 / PROJECT" title="项目信息" description="海报已提交后，再补充作品信息，让评委和现场观众快速理解妳们要解决的问题与作品价值。">
@@ -281,52 +367,98 @@ export function ProjectSubmissionPage() {
             <EventField label="核心功能 *"><textarea value={form.coreFeatures} onChange={(event) => set("coreFeatures", event.target.value)} placeholder="列出已经完成、可展示的核心功能" required /></EventField>
           </div>
         </EventSection>
-        <EventSection index="03 / DEMO" title="Demo 与视频" description="请确保现场工作人员和评委可以直接打开、理解并演示作品。">
+        <EventSection index="03 / DEMO" title="项目材料" description="请确保现场工作人员和评委可以直接打开、理解并演示作品。">
           <div className="qa-stack">
-            <EventField label="Demo 可访问链接 *"><input type="url" value={form.demoUrl} onChange={(event) => set("demoUrl", event.target.value.trim())} placeholder="https://..." required /></EventField>
+            <EventField label="GitHub 链接 *"><input type="url" value={form.demoUrl} onChange={(event) => set("demoUrl", event.target.value.trim())} placeholder="https://..." required /></EventField>
             <EventField label="Demo 操作说明 *"><textarea value={form.demoInstructions} onChange={(event) => set("demoInstructions", event.target.value)} placeholder="从打开链接到展示核心功能的操作步骤；如依赖硬件或本地环境，请写清楚。" required /></EventField>
-            <EventField label="AIGC Demo 视频 B 站链接 *" hint="3 分钟以内，展示核心功能与实际效果；支持 bilibili.com 和 b23.tv 链接。"><input type="url" value={form.demoVideoUrl} onChange={(event) => set("demoVideoUrl", event.target.value.trim())} placeholder="https://www.bilibili.com/video/..." required /></EventField>
-            <div className="vidmuse-feedback">
-              <div className="vidmuse-feedback__head">
-                <h3>VidMuse 使用小记</h3>
-                <p>想听听它在这次创作中哪些地方帮上了忙，或哪些地方还可以更好。所有回答都不会影响作品评审、展示或后续权益。</p>
-              </div>
-              <div className="choice-title">这次使用 VidMuse 的感受（可多选） *</div>
-              <div className="qa-options" aria-label="VIDMUSE 使用反馈标签">
-                {vidmuseFeedbackOptions.map((option) => (
-                  <label className="choice" key={option}>
-                    <input
-                      type="checkbox"
-                      checked={form.vidmuseFeedbackTags.includes(option)}
-                      onChange={(event) => set("vidmuseFeedbackTags", event.target.checked
-                        ? [...form.vidmuseFeedbackTags, option]
-                        : form.vidmuseFeedbackTags.filter((item) => item !== option))}
-                    />
-                    <span>{option}</span>
-                  </label>
-                ))}
-              </div>
-              
-              <EventField label="未来对 VidMuse 的使用意愿 *">
-                <div className="qa-options">
-                  {vidmuseFutureInterestOptions.map((option) => <label className="choice" key={option}><input type="radio" name="vidmuseFutureInterest" checked={form.vidmuseFutureInterest === option} onChange={() => set("vidmuseFutureInterest", option)} /><span>{option}</span></label>)}
-                </div>
-              </EventField>
-              <EventField label="想补充一句吗？ *"><textarea value={form.vidmuseFeedbackNote} onChange={(event) => set("vidmuseFeedbackNote", event.target.value.slice(0, 1000))} placeholder="请写出该产品最优之处和最令人吐槽之处" required /></EventField>
-            </div>
+            <UploadField label="硬件实物 / 原型（三视图）*" hint="请清楚展示正、侧、俯视图；支持 JPG / PNG / WebP / PDF，最大 20MB。" kind="prototype-three-views" accept=".jpg,.jpeg,.png,.webp,.pdf,image/jpeg,image/png,image/webp,application/pdf" value={form.prototypeThreeViewsUrl} onUploaded={({ url }) => set("prototypeThreeViewsUrl", url)} />
+            <EventField label="Demo 产品概念视频 *" hint="3 分钟以内，展示核心功能与实际效果；提供可正常访问的视频链接即可。"><input type="url" value={form.demoVideoUrl} onChange={(event) => set("demoVideoUrl", event.target.value.trim())} placeholder="https://..." required /></EventField>
+            <EventField label="Demo 硬件实物视频 *" hint="实物操作展示，展示硬件实物运行效果；提供可正常访问的视频链接即可。"><input type="url" value={form.demoHardwareVideoUrl} onChange={(event) => set("demoHardwareVideoUrl", event.target.value.trim())} placeholder="https://..." required /></EventField>
           </div>
         </EventSection>
-        <EventSection index="04 / MATERIALS" title="路演材料 + 硬件实物/原型(三视图)" description="请上传最终版 Pitch PPT（原文件和 PDF 备份），并补充硬件实物 / 原型的三视图，方便现场路演、布展与评审核验。">
+        <EventSection index="04 / MATERIALS" title="路演材料" description="确保所有路演的材料都涵盖在内。">
           <div className="qa-stack">
             <div className="grid-2">
-              <UploadField label="Pitch PPT 原文件 *" hint="支持 PPT / PPTX / Key，最大 30MB。" kind="pitch-source" accept=".ppt,.pptx,.key,application/vnd.ms-powerpoint,application/vnd.openxmlformats-officedocument.presentationml.presentation" value={form.pitchSourceUrl} onUploaded={({ url }) => set("pitchSourceUrl", url)} />
+              <UploadField label="Pitch PPT 原文件" hint="选传；支持 PPT / PPTX / Key，最大 30MB。" kind="pitch-source" accept=".ppt,.pptx,.key,application/vnd.ms-powerpoint,application/vnd.openxmlformats-officedocument.presentationml.presentation" value={form.pitchSourceUrl} onUploaded={({ url }) => set("pitchSourceUrl", url)} />
               <UploadField label="Pitch PPT PDF 备份 *" hint="仅支持 PDF，最大 20MB。" kind="pitch-pdf" accept=".pdf,application/pdf" value={form.pitchPdfUrl} onUploaded={({ url }) => set("pitchPdfUrl", url)} />
             </div>
-            <UploadField label="硬件实物 / 原型（三视图）*" hint="请清楚展示正、侧、俯视图；支持 JPG / PNG / WebP / PDF，最大 20MB。" kind="prototype-three-views" accept=".jpg,.jpeg,.png,.webp,.pdf,image/jpeg,image/png,image/webp,application/pdf" value={form.prototypeThreeViewsUrl} onUploaded={({ url }) => set("prototypeThreeViewsUrl", url)} />
+            <UploadField label="Pitch HTML 文件" hint="选传；支持 HTML / HTM，最大 30MB。" kind="pitch-html" accept=".html,.htm,text/html" value={form.pitchHtmlUrl} onUploaded={({ url }) => set("pitchHtmlUrl", url)} />
           </div>
         </EventSection>
-        {message ? <div className="event-message" role="alert">{message}</div> : null}
-        <div className="event-actions"><a className="btn inline-link" href="/dashboard">查看全场 Dashboard</a><button className="btn primary" type="submit" disabled={submitting !== null}>{submitting === "materials" ? "材料提交中" : "提交项目材料"}</button></div>
+          </>
+        ) : (
+        <EventSection index="05 / MARKETING" title="产品市场宣发" description="请完成产品内容的宣发信息，便于组委会核验宣发完成情况。">
+          <div className="qa-stack">
+            <div className="marketing-part">
+              <div className="marketing-part__head"><h3>一、产品内容宣发（多选，必选）</h3><p>请选择一种适用于本项目的发布方式：</p></div>
+              <div className="qa-options" aria-label="产品内容宣发方式">
+                <label className="choice"><input type="checkbox" checked={form.marketingChannels.includes("tuya")} onChange={(event) => set("marketingChannels", event.target.checked ? [...form.marketingChannels, "tuya"] : form.marketingChannels.filter((item) => item !== "tuya"))} /><span>方式一：涂鸦智能小红书宣发</span></label>
+                <label className="choice"><input type="checkbox" checked={form.marketingChannels.includes("digikey")} onChange={(event) => set("marketingChannels", event.target.checked ? [...form.marketingChannels, "digikey"] : form.marketingChannels.filter((item) => item !== "digikey"))} /><span>方式二：DigiKey 社区宣发</span></label>
+              </div>
+              <div className="hint">同时使用涂鸦智能硬件和 DigiKey 物料的团队，任选一种完成即可。</div>
+            </div>
+            {form.marketingChannels.includes("tuya") ? (
+              <div className="marketing-part">
+                <div className="marketing-part__head"><h3>方式一：涂鸦智能小红书宣发</h3><p>适用于使用涂鸦智能硬件的项目。</p></div>
+                <div className="digikey-copy-row"><div className="digikey-title">#涂鸦智能 #涂鸦开发者 #T5AI #HsHH</div><CopyButton text="#涂鸦智能 #HsHH" label="复制标签" /></div>
+                <EventField label="小红书帖子链接 *"><input type="url" value={form.tuyaPostUrl} onChange={(event) => set("tuyaPostUrl", event.target.value.trim())} placeholder="https://www.xiaohongshu.com/explore/..." required /></EventField>
+                <label className="choice event-confirm"><input type="checkbox" checked={form.tuyaPostConfirmed} onChange={(event) => set("tuyaPostConfirmed", event.target.checked)} /><span>已确认帖子可以正常访问 *</span></label>
+              </div>
+            ) : null}
+            {form.marketingChannels.includes("digikey") ? (
+              <div className="marketing-part">
+                <div className="marketing-part__head"><h3>方式二：DigiKey 社区宣发</h3><p>适用于使用 DigiKey 物料的项目。发布网站：DigiKey 技术论坛。</p></div>
+                <EventField label="标题">
+                  <div className="digikey-copy-row"><div className="digikey-title">{`【Herstory 女性硬件黑客松】${form.projectName}`}</div><CopyButton text={`【Herstory 女性硬件黑客松】${form.projectName}`} label="复制标题" /></div>
+                </EventField>
+                <EventField label="正文一键复制模板">
+                  <pre className="digikey-body">{`项目名称：${form.projectName}\n团队名称：${form.teamName}\n团队成员：${form.teamMembers.join("、")}\n一句话介绍：${form.oneLiner}\n目标用户：${form.targetUsers}\n应用场景：${form.applicationScenarios}\n核心功能：${form.coreFeatures}\n使用的 DigiKey 物料：${form.digikeyMaterials}\nDemo：${form.demoUrl}`}</pre>
+                  <div className="digikey-copy-row"><CopyButton text={`项目名称：${form.projectName}\n团队名称：${form.teamName}\n团队成员：${form.teamMembers.join("、")}\n一句话介绍：${form.oneLiner}\n目标用户：${form.targetUsers}\n应用场景：${form.applicationScenarios}\n核心功能：${form.coreFeatures}\n使用的 DigiKey 物料：${form.digikeyMaterials}\nDemo：${form.demoUrl}`} label="复制正文" /><a className="btn inline-link" href="https://forum.digikey.com/" target="_blank" rel="noreferrer">前往 DigiKey 发布</a></div>
+                </EventField>
+                <EventField label="使用的 DigiKey 物料（名称及型号）"><input value={form.digikeyMaterials} onChange={(event) => set("digikeyMaterials", event.target.value.slice(0, 200))} placeholder="如：ESP32-C3 开发板 ×2、温湿度传感器 ×1" /></EventField>
+                <EventField label="DigiKey 帖子链接 *"><input type="url" value={form.digikeyPostUrl} onChange={(event) => set("digikeyPostUrl", event.target.value.trim())} placeholder="https://forum.digikey.com/t/..." required /></EventField>
+                <label className="choice event-confirm"><input type="checkbox" checked={form.digikeyPostConfirmed} onChange={(event) => set("digikeyPostConfirmed", event.target.checked)} /><span>已确认帖子可以正常访问 *</span></label>
+              </div>
+            ) : null}
+            <div className="marketing-part">
+              <div className="marketing-part__head"><h3>二、Demo 视频宣发</h3><p>请将 Pitch 使用的 Demo 视频发布至小红书，并添加以下标签：</p></div>
+              <div className="digikey-copy-row"><div className="digikey-title">#HsHH #vidmuse</div><CopyButton text="#HsHH #vidmuse" label="复制标签" /></div>
+              <div className="vidmuse-feedback">
+                <div className="vidmuse-feedback__head">
+                  <h3>VidMuse 使用小记</h3>
+                  <p>想听听它在这次创作中哪些地方帮上了忙，或哪些地方还可以更好。所有回答都不会影响作品评审、展示或后续权益。</p>
+                </div>
+                <div className="choice-title">这次使用 VidMuse 的感受（可多选） *</div>
+                <div className="qa-options" aria-label="VIDMUSE 使用反馈标签">
+                  {vidmuseFeedbackOptions.map((option) => (
+                    <label className="choice" key={option}>
+                      <input
+                        type="checkbox"
+                        checked={form.vidmuseFeedbackTags.includes(option)}
+                        onChange={(event) => set("vidmuseFeedbackTags", event.target.checked
+                          ? [...form.vidmuseFeedbackTags, option]
+                          : form.vidmuseFeedbackTags.filter((item) => item !== option))}
+                      />
+                      <span>{option}</span>
+                    </label>
+                  ))}
+                </div>
+                <EventField label="未来对 VidMuse 的使用意愿 *">
+                  <div className="qa-options">
+                    {vidmuseFutureInterestOptions.map((option) => <label className="choice" key={option}><input type="radio" name="vidmuseFutureInterest" checked={form.vidmuseFutureInterest === option} onChange={() => set("vidmuseFutureInterest", option)} /><span>{option}</span></label>)}
+                  </div>
+                </EventField>
+                <EventField label="想补充一句吗？ *"><textarea value={form.vidmuseFeedbackNote} onChange={(event) => set("vidmuseFeedbackNote", event.target.value.slice(0, 1000))} placeholder="请写出该产品最优之处和最令人吐槽之处" required /></EventField>
+              </div>
+              <EventField label="小红书 Demo 视频链接 *"><input type="url" value={form.demoVideoMarketingUrl} onChange={(event) => set("demoVideoMarketingUrl", event.target.value.trim())} placeholder="https://www.xiaohongshu.com/explore/..." required /></EventField>
+              <label className="choice event-confirm"><input type="checkbox" checked={form.demoVideoPlaybackConfirmed} onChange={(event) => set("demoVideoPlaybackConfirmed", event.target.checked)} /><span>已确认视频可以正常播放 *</span></label>
+              <div className="hint">如果已通过方式一发布 Demo 视频，可直接填写同一个小红书链接，无需重复发布。</div>
+            </div>
+          </div>
+        </EventSection>
+        )}
+        {message ? <div className="event-message" role="alert" ref={messageRef}>{message}</div> : null}
+        <div className="event-actions">{step === 1 ? <><a className="btn inline-link" href="/dashboard">查看全场 Dashboard</a><button className="btn primary" type="button" onClick={goNext} disabled={submitting !== null}>下一步：产品宣发</button></> : <><button className="btn" type="button" onClick={() => setStep(1)} disabled={submitting !== null}>上一步</button><button className="btn primary" type="submit" disabled={submitting !== null}>{submitting === "materials" ? "材料提交中" : "提交项目材料"}</button></>}</div>
       </form>
     </EventShell>
   );
@@ -431,8 +563,8 @@ export function ProjectAdminPage() {
   return (
     <div className="admin-page project-admin-page">
       <header className="admin-head">
-        <div><div className="lead-kicker">admin.projects()</div><h1>项目提交后台</h1><p className="admin-head__note">两版电子海报截止：8 月 15 日 14:00。A4 版用于笔记本展示，0.8m × 2m 版用于路演展位。</p></div>
-        <div className="admin-head__actions"><button className="btn inline-link" type="button" onClick={() => void downloadAllArchives("posters")} disabled={bulkDownloading !== null}>{bulkDownloading === "posters" ? "正在打包海报" : "下载已提交两版海报"}</button><button className="btn inline-link" type="button" onClick={() => void downloadAllArchives("materials")} disabled={bulkDownloading !== null}>{bulkDownloading === "materials" ? "正在打包路演材料" : "下载已提交路演材料"}</button><a className="btn inline-link" href="/admin/judging">评委评分统计</a><a className="btn inline-link" href="/admin/events">赛事投票后台</a><a className="btn inline-link" href="/admin">报名后台</a></div>
+        {/* <div><div className="lead-kicker">admin.projects()</div><h1>项目提交后台</h1><p className="admin-head__note">两版电子海报截止：8 月 15 日 14:00。A4 版用于笔记本展示，0.8m × 2m 版用于路演展位。</p></div> */}
+        {/* <div className="admin-head__actions"><button className="btn inline-link" type="button" onClick={() => void downloadAllArchives("posters")} disabled={bulkDownloading !== null}>{bulkDownloading === "posters" ? "正在打包海报" : "下载已提交两版海报"}</button><button className="btn inline-link" type="button" onClick={() => void downloadAllArchives("materials")} disabled={bulkDownloading !== null}>{bulkDownloading === "materials" ? "正在打包路演材料" : "下载已提交路演材料"}</button><a className="btn inline-link" href="/admin/judging">评委评分统计</a><a className="btn inline-link" href="/admin/events">观众投票后台</a><a className="btn inline-link" href="/admin">报名后台</a></div> */}
       </header>
       <div className="admin-toolbar">
         <input value={query} onChange={(event) => setQuery(event.target.value)} onKeyDown={(event) => { if (event.key === "Enter") void load(); }} placeholder="搜索项目名称 / 团队名称" />
@@ -448,7 +580,7 @@ export function ProjectAdminPage() {
             <div className="project-admin-card__head"><span>#{String(project.projectNumber).padStart(2, "0")}</span><time>{formatAdminDate(project.updatedAt)}</time></div>
             <h2>{project.projectName}</h2>
             <p>{project.teamName}</p>
-            <div className="project-admin-card__meta"><span>{project.teamMembers.length ? `${project.teamMembers.length} 位团队成员` : "待补项目成员"}</span><span>{project.posterPrintConfirmed ? "纸质海报已确认" : "未确认纸质海报"}</span><span>{project.posterUrl && project.posterBoothUrl ? "两版电子海报已提交" : "电子海报未齐"}</span><span>{project.pitchSourceUrl && project.pitchPdfUrl && project.prototypeThreeViewsUrl ? "路演材料已提交" : "路演材料未齐"}</span></div>
+            <div className="project-admin-card__meta"><span>{project.teamMembers.length ? `${project.teamMembers.length} 位团队成员` : "待补项目成员"}</span><span>{project.posterPrintConfirmed ? "纸质海报已确认" : "未确认纸质海报"}</span><span>{project.posterUrl && project.posterBoothUrl ? "两版电子海报已提交" : "电子海报未齐"}</span><span>{project.pitchPdfUrl && project.prototypeThreeViewsUrl ? "路演材料已提交" : "路演材料未齐"}</span><span>{project.marketingChannels.length ? "宣发已填写" : "宣发未填写"}</span></div>
             <button className="btn" type="button" onClick={() => setSelected(project)}>查看完整提交</button>
           </article>
         ))}
@@ -512,6 +644,7 @@ function ProjectSubmissionDetail({ project, onClose, onDelete, deleting }: { pro
           <div className="project-materials-detail__items">
             <div><span>Pitch PPT 原文件</span>{project.pitchSourceUrl ? <a href={project.pitchSourceUrl} download>下载文件</a> : <b>未提交</b>}</div>
             <div><span>Pitch PPT PDF 备份</span>{project.pitchPdfUrl ? <a href={project.pitchPdfUrl} download>下载文件</a> : <b>未提交</b>}</div>
+            <div><span>Pitch HTML 文件</span>{project.pitchHtmlUrl ? <a href={project.pitchHtmlUrl} download>下载文件</a> : <b>未提交</b>}</div>
             <div><span>硬件实物 / 原型（三视图）</span>{project.prototypeThreeViewsUrl ? <a href={project.prototypeThreeViewsUrl} download>下载文件</a> : <b>未提交</b>}</div>
           </div>
         </section>
@@ -523,6 +656,16 @@ function ProjectSubmissionDetail({ project, onClose, onDelete, deleting }: { pro
           </div>
           <p>纸质海报：{project.posterPrintConfirmed ? "已确认携带 A4 与 0.8m × 2m 两种规格" : "尚未确认"}</p>
         </section>
+        <section className="project-poster-detail" aria-label="产品市场宣发">
+          <div className="project-detail-section-head"><strong>产品市场宣发</strong></div>
+          <div className="project-poster-detail__items">
+            <div><span>宣发方式</span>{project.marketingChannels.length ? project.marketingChannels.map((channel) => channel === "tuya" ? "方式一：涂鸦智能小红书宣发" : "方式二：DigiKey 社区宣发").join("、") : <b>未选择</b>}</div>
+            {project.tuyaPostUrl ? <div><span>方式一：小红书帖子链接</span>{project.tuyaPostConfirmed ? "已确认可访问" : <b>未确认</b>}<a href={project.tuyaPostUrl} target="_blank" rel="noreferrer">查看</a></div> : null}
+            {project.digikeyPostUrl ? <div><span>方式二：DigiKey 帖子链接</span>{project.digikeyPostConfirmed ? "已确认可访问" : <b>未确认</b>}<a href={project.digikeyPostUrl} target="_blank" rel="noreferrer">查看</a></div> : null}
+            {project.digikeyMaterials ? <div><span>DigiKey 物料</span>{project.digikeyMaterials}</div> : null}
+            {project.demoVideoMarketingUrl ? <div><span>小红书 Demo 视频链接</span>{project.demoVideoPlaybackConfirmed ? "已确认可播放" : <b>未确认</b>}<a href={project.demoVideoMarketingUrl} target="_blank" rel="noreferrer">查看</a></div> : null}
+          </div>
+        </section>
         {downloadError ? <div className="project-download-error" role="alert">{downloadError}</div> : null}
         {project.vidmuseFeedbackTags.length || project.vidmuseFeedbackNote || project.vidmuseFutureInterest ? <section className="project-vidmuse-detail" aria-label="VIDMUSE 使用小记">
           <strong>VIDMUSE 使用小记</strong>
@@ -532,7 +675,8 @@ function ProjectSubmissionDetail({ project, onClose, onDelete, deleting }: { pro
         </section> : null}
         <div className="project-file-links">
           <a className="btn inline-link" href={project.demoUrl} target="_blank" rel="noreferrer">打开 Demo</a>
-          <a className="btn inline-link" href={project.demoVideoUrl} target="_blank" rel="noreferrer">打开 B 站视频</a>
+          <a className="btn inline-link" href={project.demoVideoUrl} target="_blank" rel="noreferrer">打开概念视频</a>
+          {project.demoHardwareVideoUrl ? <a className="btn inline-link" href={project.demoHardwareVideoUrl} target="_blank" rel="noreferrer">打开硬件实物视频</a> : null}
         </div>
       </aside>
     </div>
@@ -549,10 +693,11 @@ export function VotingPage() {
   const [verified, setVerified] = useState(false);
   const [voting, setVoting] = useState<VotingConfig | null>(null);
   const [candidates, setCandidates] = useState<VotingCandidate[]>([]);
-  const [selectedId, setSelectedId] = useState("");
   const [pending, setPending] = useState<VotingCandidate | null>(null);
+  const [votedCandidate, setVotedCandidate] = useState<VotingCandidate | null>(null);
   const [message, setMessage] = useState("");
   const [loading, setLoading] = useState(false);
+  const [notice, setNotice] = useState<{ title: string; text: string; toAudience: boolean } | null>(null);
 
   const loadProjects = async () => {
     const data = await request<{ config: VotingConfig; candidates: VotingCandidate[] }>("/api/voting/projects");
@@ -562,18 +707,29 @@ export function VotingPage() {
   const verify = async (event: React.FormEvent) => {
     event.preventDefault(); setLoading(true); setMessage("");
     try {
-      const result = await request<{ eligible: boolean; alreadyVoted: boolean; message?: string }>("/api/vote/identity", { method: "POST", body: JSON.stringify(identity) });
-      if (result.alreadyVoted) { setMessage("你已完成投票，每位观众仅可投票一次。"); return; }
-      if (!result.eligible) { setMessage(result.message || "当前不具备投票资格，请联系现场工作人员。"); return; }
-      setVerified(true); await loadProjects();
-    } catch (error) { setMessage(error instanceof Error ? error.message : "身份验证失败"); } finally { setLoading(false); }
+      const response = await fetch(`${apiBase}/api/vote/identity`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ phone: identity.phone }),
+      });
+      const data = (await response.json().catch(() => ({}))) as { eligible?: boolean; alreadyVoted?: boolean; votedCandidate?: VotingCandidate | null };
+      if (response.ok && data.alreadyVoted) {
+        setVotedCandidate(data.votedCandidate || null);
+        setVerified(true);
+        await loadProjects();
+        setMessage("你已完成投票，每位观众仅可投票一次。你投给了「" + (data.votedCandidate?.name || "未知作品") + "」。");
+        return;
+      }
+      if (response.ok && data.eligible) { setVerified(true); setVotedCandidate(null); await loadProjects(); return; }
+      setNotice({ title: "身份验证未通过", text: "身份验证未通过，请先完成观众报名。", toAudience: true });
+    } catch (error) { setNotice({ title: "身份验证未通过", text: "身份验证未通过，请先完成观众报名。", toAudience: true }); } finally { setLoading(false); }
   };
   const vote = async () => {
     if (!pending) return;
     setLoading(true); setMessage("");
     try {
       await request<{ ok: boolean }>("/api/votes", { method: "POST", body: JSON.stringify({ identity, candidateId: pending.id }) });
-      setPending(null); setSelectedId(""); setVerified(false); setMessage("投票成功，感谢参与。");
+      setVotedCandidate(pending); setPending(null); setVerified(false); setMessage("投票成功，感谢参与。你投给了「" + pending.name + "」。");
     } catch (error) { setPending(null); setMessage(error instanceof Error ? error.message : "投票失败"); } finally { setLoading(false); }
   };
 
@@ -586,14 +742,26 @@ export function VotingPage() {
         </form>
       </EventSection>
       {message ? <div className="event-message" role="status">{message}</div> : null}
-      {verified ? <EventSection index="02 / VOTE" title="选择妳最喜爱的作品" description={voting?.isOpen ? "请从 18 个项目中选择一项，确认后不可修改。" : "投票尚未开始或已结束。"}>
-        {!voting?.isOpen ? <p className="event-empty">投票尚未开始或已经结束，请以现场通知为准。</p> : null}
-        {voting?.isOpen && candidates.length === 0 ? <p className="event-empty">投票名单准备中，请稍后刷新。</p> : null}
-        {voting?.isOpen && candidates.length ? <div className="event-form vote-select-form"><EventField label="选择一个项目"><select value={selectedId} onChange={(event) => setSelectedId(event.target.value)} required><option value="" disabled>请选择项目</option>{candidates.map((candidate) => <option key={candidate.id} value={candidate.id}>#{String(candidate.number).padStart(2, "0")} {candidate.name}</option>)}</select></EventField><div className="event-actions"><button className="btn primary" type="button" disabled={!selectedId || loading} onClick={() => setPending(candidates.find((candidate) => candidate.id === selectedId) || null)}>确认投票</button></div></div> : null}
+      {verified ? <EventSection index="02 / VOTE" title={votedCandidate ? "我的投票" : "选择妳最喜爱的作品"} description={votedCandidate ? "你已完成投票，每位观众仅有一票，提交后不可修改。你投给了「" + votedCandidate.name + "」。已投票作品以高亮标注。" : "每位观众仅有一票，请从下面的作品中选出一项，确认后不可修改。"}>
+        {!voting?.isOpen ? <p className="event-message" role="status">当前投票尚未开启，可先浏览作品；开启后即可投票。</p> : null}
+        {candidates.length === 0 ? <p className="event-empty">投票名单准备中，请稍后刷新。</p> : null}
+        {candidates.length ? <div className="jury-score-list">
+          {[...candidates].sort((a, b) => Number(votedCandidate && b.id === votedCandidate.id) - Number(votedCandidate && a.id === votedCandidate.id)).map((candidate) => (
+            <article className={"jury-team-card" + (votedCandidate && votedCandidate.id === candidate.id ? " is-voted" : "")} key={candidate.id}>
+              <header className="jury-team-card__head"><div><span>#{String(candidate.number).padStart(2, "0")}</span><h3>{candidate.name}</h3></div>{votedCandidate && votedCandidate.id === candidate.id ? <b className="is-saved">已投</b> : null}</header>
+              <footer className="jury-team-card__foot"><div><span>作品编号</span><strong>#{String(candidate.number).padStart(2, "0")} {candidate.name}</strong></div>{!votedCandidate ? <button className="btn primary" type="button" disabled={loading} onClick={() => setPending(candidate)}>投 TA 一票</button> : null}</footer>
+            </article>
+          ))}
+        </div> : null}
       </EventSection> : null}
       <VoteConfirmModal project={pending} loading={loading} onClose={() => setPending(null)} onConfirm={() => void vote()} />
+      {notice ? <NoticeModal title={notice.title} message={notice.text} actionLabel={notice.toAudience ? "去报名" : "知道了"} onAction={() => { if (notice.toAudience) { window.location.assign("/audience"); } else { setNotice(null); } }} /> : null}
     </EventShell>
   );
+}
+
+function NoticeModal(props: { title: string; message: string; actionLabel: string; onAction: () => void }) {
+  return <div className="event-modal" role="presentation"><section className="notice-panel" role="dialog" aria-modal="true" aria-labelledby="noticeTitle"><div className="notice-head"><div className="lead-kicker">audience.vote()</div><h2 id="noticeTitle">{props.title}</h2></div><div className="notice-body"><p className="event-modal-copy">{props.message}</p><div className="notice-actions"><button className="btn primary" type="button" onClick={props.onAction}>{props.actionLabel}</button></div></div></section></div>;
 }
 
 function VoteConfirmModal(props: { project: VotingCandidate | null; loading: boolean; onClose: () => void; onConfirm: () => void }) {
@@ -611,7 +779,7 @@ export function EventAdminDashboard() {
   useEffect(() => { void load(); }, []);
   const updateConfig = async (isOpen: boolean) => { setLoading(true); try { await request("/api/admin/voting-config", { method: "PUT", body: JSON.stringify({ isOpen }) }); await load(); } catch (error) { setMessage(error instanceof Error ? error.message : "更新失败"); } finally { setLoading(false); } };
   const exportVotes = () => { window.location.assign(`${apiBase}/api/admin/votes/export.csv`); };
-  return <div className="admin-page event-admin"><header className="admin-head"><div><div className="lead-kicker">admin.event()</div><h1>赛事与投票后台</h1></div><div className="admin-head__actions"><a className="btn inline-link" href="/admin/judging">评委评分统计</a><button className="btn primary" type="button" onClick={exportVotes}>导出投票 CSV</button></div></header>{message ? <div className="admin-error">{message}</div> : null}{data ? <><section className="admin-event-stats"><div><strong>{data.stats.eligibleAudience}</strong><span>已报名观众</span></div><div><strong>{data.stats.votedAudience}</strong><span>已投票</span></div><div><strong>{data.stats.voteRate}%</strong><span>投票率</span></div><div><strong>{data.config.isOpen ? "进行中" : "已关闭"}</strong><span>投票状态</span></div></section><div className="admin-toolbar"><button className="btn primary" type="button" disabled={loading || data.config.isOpen} onClick={() => void updateConfig(true)}>开启投票</button><button className="btn" type="button" disabled={loading || !data.config.isOpen} onClick={() => void updateConfig(false)}>关闭投票</button><button className="btn" type="button" onClick={() => void load()}>刷新数据</button></div><div className="admin-table-wrap"><table className="admin-table admin-event-table"><thead><tr><th>编号</th><th>投票项目</th><th>有效票数</th></tr></thead><tbody>{data.candidates.map((candidate) => <tr key={candidate.id}><td>#{String(candidate.number).padStart(2, "0")}</td><td>{candidate.name}</td><td>{candidate.validVotes || 0}</td></tr>)}</tbody></table></div></> : <p className="event-empty">正在读取赛事数据…</p>}</div>;
+  return <div className="admin-page event-admin"><header className="admin-head"><div><div className="lead-kicker">admin.event()</div><h1>观众投票后台</h1></div><div className="admin-head__actions"><a className="btn inline-link" href="/admin/judging">评委评分统计</a><button className="btn primary" type="button" onClick={exportVotes}>导出投票 CSV</button></div></header>{message ? <div className="admin-error">{message}</div> : null}{data ? <><section className="admin-event-stats"><div><strong>{data.stats.eligibleAudience}</strong><span>已报名观众</span></div><div><strong>{data.stats.votedAudience}</strong><span>已投票</span></div><div><strong>{data.stats.voteRate}%</strong><span>投票率</span></div><div><strong>{data.config.isOpen ? "进行中" : "已关闭"}</strong><span>投票状态</span></div></section><div className="admin-toolbar"><button className="btn primary" type="button" disabled={loading || data.config.isOpen} onClick={() => void updateConfig(true)}>开启投票</button><button className="btn" type="button" disabled={loading || !data.config.isOpen} onClick={() => void updateConfig(false)}>关闭投票</button><button className="btn" type="button" onClick={() => void load()}>刷新数据</button></div>      <div className="admin-table-wrap"><table className="admin-table admin-event-table"><thead><tr><th>排名</th><th>编号</th><th>投票项目</th><th>有效票数</th><th>得票率</th></tr></thead><tbody>{[...data.candidates].sort((a, b) => (b.validVotes || 0) - (a.validVotes || 0)).map((candidate, index) => <tr key={candidate.id}><td>#{(candidate.validVotes || 0) > 0 ? index + 1 : "-"}</td><td>#{String(candidate.number).padStart(2, "0")}</td><td>{candidate.name}</td><td><strong>{candidate.validVotes || 0}</strong></td><td>{data.stats.votedAudience ? Math.round(((candidate.validVotes || 0) / data.stats.votedAudience) * 100) + "%" : "-"}</td></tr>)}</tbody></table></div></> : <p className="event-empty">正在读取赛事数据…</p>}</div>;
 }
 
 function scoreText(value: number | null | undefined) {
@@ -737,7 +905,7 @@ export function JuryAdminDashboard() {
   const scoredTeams = data?.teamStats.filter((team) => team.scoreCount > 0).length || 0;
 
   return <div className="admin-page jury-admin-page">
-    <header className="admin-head"><div><div className="lead-kicker">admin.judging()</div><h1>评委评分统计</h1><p className="admin-head__note">共 18 支队伍、6 位评委、6 个评分维度，总分 100 分。</p></div><div className="admin-head__actions"><a className="btn inline-link" href="/judge">进入评委评分页</a><a className="btn inline-link" href="/admin/events">赛事投票后台</a><button className="btn primary" type="button" onClick={exportCsv}>导出评分 CSV</button></div></header>
+    <header className="admin-head"><div><div className="lead-kicker">admin.judging()</div><h1>评委评分统计</h1><p className="admin-head__note">共 18 支队伍、6 位评委、6 个评分维度，总分 100 分。</p></div><div className="admin-head__actions"><a className="btn inline-link" href="/judge">进入评委评分页</a><a className="btn inline-link" href="/admin/events">观众投票后台</a><button className="btn primary" type="button" onClick={exportCsv}>导出评分 CSV</button></div></header>
     {message ? <div className="admin-error">{message}</div> : null}
     {data ? <>
       <section className="admin-event-stats jury-admin-stats"><div><strong>{data.scoreCount}</strong><span>已保存评分</span></div><div><strong>{completedJudges} / {data.judges.length}</strong><span>完成全部评分的评委</span></div><div><strong>{scoredTeams} / {data.teams.length}</strong><span>已有评分的队伍</span></div></section>

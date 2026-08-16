@@ -53,8 +53,10 @@ type ProjectInput = {
   demoUrl?: string;
   demoInstructions?: string;
   demoVideoUrl?: string;
+  demoHardwareVideoUrl?: string;
   pitchSourceUrl?: string;
   pitchPdfUrl?: string;
+  pitchHtmlUrl?: string;
   prototypeThreeViewsUrl?: string;
   posterUrl?: string;
   posterBoothUrl?: string;
@@ -62,6 +64,14 @@ type ProjectInput = {
   vidmuseFeedbackTags?: string[];
   vidmuseFeedbackNote?: string;
   vidmuseFutureInterest?: string;
+  marketingChannels?: string[];
+  tuyaPostUrl?: string;
+  tuyaPostConfirmed?: boolean;
+  digikeyPostUrl?: string;
+  digikeyPostConfirmed?: boolean;
+  digikeyMaterials?: string;
+  demoVideoMarketingUrl?: string;
+  demoVideoPlaybackConfirmed?: boolean;
 };
 
 type ProjectRow = {
@@ -78,8 +88,10 @@ type ProjectRow = {
   demo_url: string;
   demo_instructions: string;
   demo_video_url: string;
+  demo_hardware_video_url: string | null;
   pitch_source_url: string;
   pitch_pdf_url: string;
+  pitch_html_url: string | null;
   prototype_three_views_url: string | null;
   poster_url: string;
   poster_booth_url: string | null;
@@ -87,6 +99,14 @@ type ProjectRow = {
   vidmuse_feedback_tags: string | null;
   vidmuse_feedback_note: string | null;
   vidmuse_future_interest: string | null;
+  marketing_channels: string | null;
+  tuya_post_url: string | null;
+  tuya_post_confirmed: number;
+  digikey_post_url: string | null;
+  digikey_post_confirmed: number;
+  digikey_materials: string | null;
+  demo_video_marketing_url: string | null;
+  demo_video_playback_confirmed: number;
   status: string;
   is_public: number;
   voting_enabled: number;
@@ -119,26 +139,26 @@ const requiredConsent = ["我同意遵守 HsHH 尊重与安全规范", "我同�
 const vidmuseFeedbackOptions = ["帮我更快开始创作", "有些功能不够顺手", "希望增加新的功能或场景", "暂时没有特别感受"];
 const vidmuseFutureInterestOptions = ["非常愿意继续使用", "愿意继续使用", "暂时不确定", "暂时不考虑"];
 const posterSubmissionDeadline = Date.parse("2026-08-15T14:30:00+08:00");
-const juryJudges = ["评委 01", "评委 02", "评委 03", "评委 04", "评委 05", "评委 06"];
+const juryJudges = ["陈曦", "Lashley", "沈彤欣", "卓霖", "刘心爱", "八两", "徐世哲", "张婕", "bala  ", "Reese", "Bella Ren", "Qin_Lynn","Jack(何维)"];
 const juryTeams = [
+  ["art-mind", "艺境 ART MIND"],
   ["me", "Me"],
-  ["good-friends", "我的好机友们"],
-  ["golden-cicada", "金婵脱壳"],
-  ["she-occupied", "她先占了"],
-  ["niannian", "念念 NianNian 想念灯"],
-  ["three-carbon-one-hydrogen", "叁氪壹氢"],
-  ["whisper-hands", "絮手 Whisper Hands"],
-  ["sleep-isle", "屿眠｜Sleep Isle-AI 睡眠魔法水晶球"],
-  ["lafeshit", "lafeshit"],
-  ["talis", "Talis"],
-  ["sendsense", "SendSense"],
-  ["pet-owner-home", "铲屎官家园"],
-  ["hergym", "HerGym"],
-  ["to-be-confirmed", "待定"],
-  ["aaa-maker", "AAA 创客"],
-  ["time", "拾光 Time"],
+  ["jinchan", "金婵"],
+  ["clip", "CLIP"],
+  ["glim", "Glim"],
+  ["niannian", "念念NianNian | 想念灯"],
   ["m-and-mb", "M&MB"],
-  ["art-ip-ai", "艺术 IP AI 陪伴"],
+  ["robotie", "Robotie抱抱"],
+  ["talis", "Talis"],
+  ["shike", "食刻 冰箱库存管理器"],
+  ["her-voice", "她的声音越过群山"],
+  ["sleep-isle", "屿眠 ｜Sleep Isle｜睡眠魔法水晶球"],
+  ["xiaoshijie", "小师姐设备ai管家"],
+  ["whisper-hands", "絮手 Whisper Hands"],
+  ["poopsense", "POOPSENSE"],
+  ["daaance", "Daaance!"],
+  ["time", "拾光Time"],
+  ["pet-nose-print", "宠物鼻纹墨水屏手机壳"],
 ] as const;
 const juryDimensions = [
   { key: "humanImpact", column: "human_impact", label: "人本价值", english: "Human Impact", max: 25 },
@@ -387,10 +407,11 @@ async function submitProject(request: Request, env: WorkerEnv) {
   await env.DB.prepare(
     `INSERT INTO projects (
       id, project_number, team_key, project_name, team_name, team_members_json, one_liner, target_users,
-      application_scenarios, core_features, demo_url, demo_instructions, demo_video_url, pitch_source_url,
-      pitch_pdf_url, prototype_three_views_url, poster_url, poster_booth_url, poster_print_confirmed, vidmuse_feedback_tags, vidmuse_feedback_note, vidmuse_future_interest,
+      application_scenarios, core_features, demo_url, demo_instructions, demo_video_url, demo_hardware_video_url, pitch_source_url,
+      pitch_pdf_url, pitch_html_url, prototype_three_views_url, poster_url, poster_booth_url, poster_print_confirmed, vidmuse_feedback_tags, vidmuse_feedback_note, vidmuse_future_interest,
+      marketing_channels, tuya_post_url, tuya_post_confirmed, digikey_post_url, digikey_post_confirmed, digikey_materials, demo_video_marketing_url, demo_video_playback_confirmed,
       status, is_public, voting_enabled, created_at, updated_at
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'submitted', 0, 0, ?, ?)
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'submitted', 0, 0, ?, ?)
     ON CONFLICT(team_key) DO UPDATE SET
       project_name = excluded.project_name,
       team_members_json = excluded.team_members_json,
@@ -401,8 +422,10 @@ async function submitProject(request: Request, env: WorkerEnv) {
       demo_url = excluded.demo_url,
       demo_instructions = excluded.demo_instructions,
       demo_video_url = excluded.demo_video_url,
+      demo_hardware_video_url = excluded.demo_hardware_video_url,
       pitch_source_url = excluded.pitch_source_url,
       pitch_pdf_url = excluded.pitch_pdf_url,
+      pitch_html_url = excluded.pitch_html_url,
       prototype_three_views_url = excluded.prototype_three_views_url,
       poster_url = CASE WHEN excluded.poster_url <> '' THEN excluded.poster_url ELSE projects.poster_url END,
       poster_booth_url = CASE WHEN excluded.poster_booth_url <> '' THEN excluded.poster_booth_url ELSE projects.poster_booth_url END,
@@ -410,6 +433,14 @@ async function submitProject(request: Request, env: WorkerEnv) {
       vidmuse_feedback_tags = excluded.vidmuse_feedback_tags,
       vidmuse_feedback_note = excluded.vidmuse_feedback_note,
       vidmuse_future_interest = excluded.vidmuse_future_interest,
+      marketing_channels = excluded.marketing_channels,
+      tuya_post_url = excluded.tuya_post_url,
+      tuya_post_confirmed = excluded.tuya_post_confirmed,
+      digikey_post_url = excluded.digikey_post_url,
+      digikey_post_confirmed = excluded.digikey_post_confirmed,
+      digikey_materials = excluded.digikey_materials,
+      demo_video_marketing_url = excluded.demo_video_marketing_url,
+      demo_video_playback_confirmed = excluded.demo_video_playback_confirmed,
       status = 'submitted',
       is_public = CASE
         WHEN (CASE WHEN excluded.poster_url <> '' THEN excluded.poster_url ELSE projects.poster_url END) <> ''
@@ -420,8 +451,9 @@ async function submitProject(request: Request, env: WorkerEnv) {
   ).bind(
     recordId, projectNumber, teamKey, project.projectName, project.teamName, JSON.stringify(project.teamMembers), project.oneLiner,
     project.targetUsers, project.applicationScenarios, project.coreFeatures, project.demoUrl, project.demoInstructions,
-    project.demoVideoUrl, project.pitchSourceUrl, project.pitchPdfUrl, project.prototypeThreeViewsUrl, project.posterUrl, project.posterBoothUrl, project.posterPrintConfirmed ? 1 : 0,
+    project.demoVideoUrl, project.demoHardwareVideoUrl, project.pitchSourceUrl, project.pitchPdfUrl, project.pitchHtmlUrl, project.prototypeThreeViewsUrl, project.posterUrl, project.posterBoothUrl, project.posterPrintConfirmed ? 1 : 0,
     JSON.stringify(project.vidmuseFeedbackTags), project.vidmuseFeedbackNote, project.vidmuseFutureInterest,
+    JSON.stringify(project.marketingChannels), project.tuyaPostUrl, project.tuyaPostConfirmed ? 1 : 0, project.digikeyPostUrl, project.digikeyPostConfirmed ? 1 : 0, project.digikeyMaterials, project.demoVideoMarketingUrl, project.demoVideoPlaybackConfirmed ? 1 : 0,
     createdAt, now,
   ).run();
 
@@ -456,11 +488,11 @@ async function submitProjectPosters(request: Request, env: WorkerEnv) {
       poster_booth_url = excluded.poster_booth_url,
       poster_print_confirmed = excluded.poster_print_confirmed,
       status = CASE
-        WHEN projects.pitch_source_url <> '' AND projects.pitch_pdf_url <> '' AND COALESCE(projects.prototype_three_views_url, '') <> '' THEN 'submitted'
+        WHEN projects.pitch_pdf_url <> '' AND COALESCE(projects.prototype_three_views_url, '') <> '' THEN 'submitted'
         ELSE 'poster_submitted'
       END,
       is_public = CASE
-        WHEN projects.pitch_source_url <> '' AND projects.pitch_pdf_url <> '' AND COALESCE(projects.prototype_three_views_url, '') <> '' THEN 1
+        WHEN projects.pitch_pdf_url <> '' AND COALESCE(projects.prototype_three_views_url, '') <> '' THEN 1
         ELSE 0
       END,
       updated_at = excluded.updated_at`,
@@ -474,11 +506,12 @@ async function submitProjectPosters(request: Request, env: WorkerEnv) {
   return json({ project: rowToProject(row) }, 201);
 }
 
-type SubmissionFileKind = "pitch-source" | "pitch-pdf" | "prototype-three-views" | "poster-a4" | "poster-booth";
+type SubmissionFileKind = "pitch-source" | "pitch-pdf" | "pitch-html" | "prototype-three-views" | "poster-a4" | "poster-booth";
 
 const submissionFileRules: Record<SubmissionFileKind, { extensions: string[]; maxBytes: number; label: string }> = {
   "pitch-source": { extensions: ["ppt", "pptx", "key"], maxBytes: 30 * 1024 * 1024, label: "Pitch PPT 原文件" },
   "pitch-pdf": { extensions: ["pdf"], maxBytes: 20 * 1024 * 1024, label: "Pitch PPT PDF 备份" },
+  "pitch-html": { extensions: ["html", "htm"], maxBytes: 30 * 1024 * 1024, label: "Pitch HTML 文件" },
   "prototype-three-views": { extensions: ["jpg", "jpeg", "png", "webp", "pdf"], maxBytes: 20 * 1024 * 1024, label: "硬件实物 / 原型（三视图）" },
   "poster-a4": { extensions: ["jpg", "jpeg", "png", "webp"], maxBytes: 10 * 1024 * 1024, label: "A4 产品宣发海报电子版" },
   "poster-booth": { extensions: ["jpg", "jpeg", "png", "webp"], maxBytes: 10 * 1024 * 1024, label: "0.8m × 2m 展位海报电子版" },
@@ -549,8 +582,10 @@ async function verifyVoter(request: Request, env: WorkerEnv) {
   const audience = await findAudience(identity, env);
   if (!audience) return json({ eligible: false, alreadyVoted: false, message: "没有找到报名记录，请联系现场工作人员。" }, 404);
   if (audience.status !== "submitted") return json({ eligible: false, alreadyVoted: false, message: "当前报名状态无效，请联系现场工作人员。" }, 403);
-  const vote = await env.DB.prepare("SELECT id FROM audience_project_votes WHERE audience_id = ? LIMIT 1").bind(audience.id).first<{ id: string }>();
-  return json({ eligible: !vote, alreadyVoted: Boolean(vote) });
+  const vote = await env.DB.prepare("SELECT candidate_key FROM audience_project_votes WHERE audience_id = ? LIMIT 1").bind(audience.id).first<{ candidate_key: string }>();
+  if (!vote) return json({ eligible: true, alreadyVoted: false });
+  const votedCandidate = votingCandidates().find((candidate) => candidate.id === vote.candidate_key) || null;
+  return json({ eligible: false, alreadyVoted: true, votedCandidate });
 }
 
 async function castVote(request: Request, env: WorkerEnv) {
@@ -761,7 +796,7 @@ async function adminDeleteProject(request: Request, env: WorkerEnv, id: string) 
   await env.DB.prepare("DELETE FROM votes WHERE project_id = ?").bind(project.id).run();
   await env.DB.prepare("DELETE FROM projects WHERE id = ?").bind(project.id).run();
 
-  const fileKeys = [project.pitch_source_url, project.pitch_pdf_url, project.prototype_three_views_url, project.poster_url, project.poster_booth_url]
+  const fileKeys = [project.pitch_source_url, project.pitch_pdf_url, project.pitch_html_url, project.prototype_three_views_url, project.poster_url, project.poster_booth_url]
     .map(submissionFileKey)
     .filter((key): key is string => Boolean(key));
   await Promise.allSettled(fileKeys.map((key) => env.SUBMISSIONS.delete(key)));
@@ -778,8 +813,9 @@ function projectArchiveFiles(project: ProjectRow, group: ProjectArchiveGroup): P
     ? [
       { label: "01-Pitch PPT 原文件", url: project.pitch_source_url },
       { label: "02-Pitch PPT PDF 备份", url: project.pitch_pdf_url },
-      { label: "03-硬件实物-原型三视图", url: project.prototype_three_views_url || "" },
-    ]
+      { label: "03-Pitch HTML 文件", url: project.pitch_html_url || "" },
+      { label: "04-硬件实物-原型三视图", url: project.prototype_three_views_url || "" },
+    ].filter((file) => Boolean(file.url))
     : [
       { label: "01-A4 海报电子版", url: project.poster_url },
       { label: "02-0.8m x 2m 展位海报", url: project.poster_booth_url || "" },
@@ -964,7 +1000,7 @@ async function adminExportVotes(request: Request, env: WorkerEnv) {
 async function getVotingConfig(env: WorkerEnv) {
   const config = await env.DB.prepare("SELECT is_open, starts_at, ends_at FROM voting_config WHERE id = 1 LIMIT 1").first<VotingConfigRow>();
   if (config) return config;
-  return { is_open: 0, starts_at: null, ends_at: null };
+  return { is_open: 1, starts_at: null, ends_at: null };
 }
 
 function votingConfigResponse(config: VotingConfigRow) {
@@ -988,13 +1024,17 @@ async function findAudience(identity: VoterIdentity, env: WorkerEnv) {
 }
 
 function validateProject(input: ProjectInput) {
-  const required = ["projectName", "teamName", "oneLiner", "targetUsers", "applicationScenarios", "coreFeatures", "demoUrl", "demoInstructions", "demoVideoUrl", "pitchSourceUrl", "pitchPdfUrl", "prototypeThreeViewsUrl"] as const;
+  const required = ["projectName", "teamName", "oneLiner", "targetUsers", "applicationScenarios", "coreFeatures", "demoUrl", "demoInstructions", "demoVideoUrl", "demoHardwareVideoUrl", "pitchPdfUrl", "prototypeThreeViewsUrl"] as const;
   for (const key of required) if (!clean(input[key])) return `缺少必填字段：${key}`;
   if (!Array.isArray(input.teamMembers) || input.teamMembers.map(clean).filter(Boolean).length === 0) return "请至少填写一位团队成员";
   if (!isSafeUrl(input.demoUrl)) return "Demo 链接格式不正确，需要以 http:// 或 https:// 开头";
-  if (!isBilibiliUrl(input.demoVideoUrl)) return "AIGC Demo 视频请提交 B 站链接";
-  for (const key of ["pitchSourceUrl", "pitchPdfUrl", "prototypeThreeViewsUrl"] as const) {
+  if (!isSafeUrl(input.demoVideoUrl)) return "Demo 概念视频链接格式不正确，需要以 http:// 或 https:// 开头";
+  if (!isSafeUrl(input.demoHardwareVideoUrl)) return "Demo 硬件实物视频链接格式不正确，需要以 http:// 或 https:// 开头";
+  for (const key of ["pitchPdfUrl", "prototypeThreeViewsUrl"] as const) {
     if (!isStoredSubmissionUrl(input[key])) return "请通过本页面上传路演材料和三视图文件";
+  }
+  for (const key of ["pitchSourceUrl", "pitchHtmlUrl"] as const) {
+    if (clean(input[key]) && !isStoredSubmissionUrl(input[key])) return "请通过本页面上传路演材料和三视图文件";
   }
   const feedbackTags = stringArray(input.vidmuseFeedbackTags);
   if (feedbackTags.some((tag) => !vidmuseFeedbackOptions.includes(tag))) return "VIDMUSE 反馈选项不正确";
@@ -1003,6 +1043,22 @@ function validateProject(input: ProjectInput) {
   if (!vidmuseFutureInterestOptions.includes(futureInterest)) return "请选择未来对 VIDMUSE 的使用意愿";
   if (!clean(input.vidmuseFeedbackNote)) return "请填写 VIDMUSE 使用小记";
   if (clean(input.vidmuseFeedbackNote).length > 1000) return "VIDMUSE 使用小记请控制在 1000 字以内";
+  const marketingChannels = stringArray(input.marketingChannels);
+  if (!marketingChannels.length) return "请至少选择一种产品内容宣发方式";
+  if (marketingChannels.some((channel) => channel !== "tuya" && channel !== "digikey")) return "产品内容宣发方式选项不正确";
+  if (marketingChannels.includes("tuya")) {
+    if (!clean(input.tuyaPostUrl)) return "请填写方式一（涂鸦智能小红书宣发）帖子链接";
+    if (!isSafeUrl(input.tuyaPostUrl)) return "小红书帖子链接格式不正确，需要以 http:// 或 https:// 开头";
+    if (!input.tuyaPostConfirmed) return "请确认方式一帖子可以正常访问";
+  }
+  if (marketingChannels.includes("digikey")) {
+    if (!clean(input.digikeyPostUrl)) return "请填写方式二（DigiKey 社区宣发）帖子链接";
+    if (!isSafeUrl(input.digikeyPostUrl)) return "DigiKey 帖子链接格式不正确，需要以 http:// 或 https:// 开头";
+    if (!input.digikeyPostConfirmed) return "请确认方式二帖子可以正常访问";
+  }
+  if (!clean(input.demoVideoMarketingUrl)) return "请填写小红书 Demo 视频链接";
+  if (!isSafeUrl(input.demoVideoMarketingUrl)) return "小红书 Demo 视频链接格式不正确，需要以 http:// 或 https:// 开头";
+  if (!input.demoVideoPlaybackConfirmed) return "请确认小红书 Demo 视频可以正常播放";
   return "";
 }
 
@@ -1021,10 +1077,15 @@ function normalizeProject(input: ProjectInput) {
   return {
     projectName: clean(input.projectName), teamName: clean(input.teamName), teamMembers: stringArray(input.teamMembers), oneLiner: clean(input.oneLiner),
     targetUsers: clean(input.targetUsers), applicationScenarios: clean(input.applicationScenarios), coreFeatures: clean(input.coreFeatures),
-    demoUrl: clean(input.demoUrl), demoInstructions: clean(input.demoInstructions), demoVideoUrl: clean(input.demoVideoUrl),
-    pitchSourceUrl: clean(input.pitchSourceUrl), pitchPdfUrl: clean(input.pitchPdfUrl), prototypeThreeViewsUrl: clean(input.prototypeThreeViewsUrl), posterUrl: clean(input.posterUrl), posterBoothUrl: clean(input.posterBoothUrl), posterPrintConfirmed: Boolean(input.posterPrintConfirmed),
+    demoUrl: clean(input.demoUrl), demoInstructions: clean(input.demoInstructions), demoVideoUrl: clean(input.demoVideoUrl), demoHardwareVideoUrl: clean(input.demoHardwareVideoUrl),
+    pitchSourceUrl: clean(input.pitchSourceUrl), pitchPdfUrl: clean(input.pitchPdfUrl), pitchHtmlUrl: clean(input.pitchHtmlUrl), prototypeThreeViewsUrl: clean(input.prototypeThreeViewsUrl), posterUrl: clean(input.posterUrl), posterBoothUrl: clean(input.posterBoothUrl), posterPrintConfirmed: Boolean(input.posterPrintConfirmed),
     vidmuseFeedbackTags: stringArray(input.vidmuseFeedbackTags).filter((tag) => vidmuseFeedbackOptions.includes(tag)),
     vidmuseFeedbackNote: clean(input.vidmuseFeedbackNote), vidmuseFutureInterest: clean(input.vidmuseFutureInterest),
+    marketingChannels: stringArray(input.marketingChannels).filter((channel) => channel === "tuya" || channel === "digikey"),
+    tuyaPostUrl: clean(input.tuyaPostUrl), tuyaPostConfirmed: Boolean(input.tuyaPostConfirmed),
+    digikeyPostUrl: clean(input.digikeyPostUrl), digikeyPostConfirmed: Boolean(input.digikeyPostConfirmed),
+    digikeyMaterials: clean(input.digikeyMaterials),
+    demoVideoMarketingUrl: clean(input.demoVideoMarketingUrl), demoVideoPlaybackConfirmed: Boolean(input.demoVideoPlaybackConfirmed),
   };
 }
 
@@ -1033,10 +1094,13 @@ function rowToProject(row: ProjectRow) {
     id: row.id, projectNumber: row.project_number, projectName: row.project_name, teamName: row.team_name,
     teamMembers: parseStringArray(row.team_members_json), oneLiner: row.one_liner, targetUsers: row.target_users,
     applicationScenarios: row.application_scenarios, coreFeatures: row.core_features, demoUrl: row.demo_url,
-    demoInstructions: row.demo_instructions, demoVideoUrl: row.demo_video_url, pitchSourceUrl: row.pitch_source_url,
-    pitchPdfUrl: row.pitch_pdf_url, prototypeThreeViewsUrl: row.prototype_three_views_url || "", posterUrl: row.poster_url, posterBoothUrl: row.poster_booth_url || "", posterPrintConfirmed: Boolean(row.poster_print_confirmed),
+    demoInstructions: row.demo_instructions, demoVideoUrl: row.demo_video_url, demoHardwareVideoUrl: row.demo_hardware_video_url || "", pitchSourceUrl: row.pitch_source_url,
+    pitchPdfUrl: row.pitch_pdf_url, pitchHtmlUrl: row.pitch_html_url || "", prototypeThreeViewsUrl: row.prototype_three_views_url || "", posterUrl: row.poster_url, posterBoothUrl: row.poster_booth_url || "", posterPrintConfirmed: Boolean(row.poster_print_confirmed),
     vidmuseFeedbackTags: parseStringArray(row.vidmuse_feedback_tags || "[]"), vidmuseFeedbackNote: row.vidmuse_feedback_note || "",
     vidmuseFutureInterest: row.vidmuse_future_interest || "",
+    marketingChannels: parseStringArray(row.marketing_channels || "[]"), tuyaPostUrl: row.tuya_post_url || "", tuyaPostConfirmed: Boolean(row.tuya_post_confirmed),
+    digikeyPostUrl: row.digikey_post_url || "", digikeyPostConfirmed: Boolean(row.digikey_post_confirmed), digikeyMaterials: row.digikey_materials || "",
+    demoVideoMarketingUrl: row.demo_video_marketing_url || "", demoVideoPlaybackConfirmed: Boolean(row.demo_video_playback_confirmed),
     status: row.status, isPublic: Boolean(row.is_public), votingEnabled: Boolean(row.voting_enabled),
     createdAt: row.created_at, updatedAt: row.updated_at, validVotes: row.valid_votes || 0,
   };
@@ -1048,6 +1112,14 @@ function rowToPublicProject(row: ProjectRow) {
     vidmuseFeedbackNote: _vidmuseFeedbackNote,
     vidmuseFutureInterest: _vidmuseFutureInterest,
     prototypeThreeViewsUrl: _prototypeThreeViewsUrl,
+    marketingChannels: _marketingChannels,
+    tuyaPostUrl: _tuyaPostUrl,
+    tuyaPostConfirmed: _tuyaPostConfirmed,
+    digikeyPostUrl: _digikeyPostUrl,
+    digikeyPostConfirmed: _digikeyPostConfirmed,
+    digikeyMaterials: _digikeyMaterials,
+    demoVideoMarketingUrl: _demoVideoMarketingUrl,
+    demoVideoPlaybackConfirmed: _demoVideoPlaybackConfirmed,
     ...project
   } = rowToProject(row);
   return {
@@ -1055,8 +1127,10 @@ function rowToPublicProject(row: ProjectRow) {
     demoUrl: "",
     demoInstructions: "",
     demoVideoUrl: "",
+    demoHardwareVideoUrl: "",
     pitchSourceUrl: "",
     pitchPdfUrl: "",
+    pitchHtmlUrl: "",
   };
 }
 
@@ -1066,17 +1140,6 @@ function parseStringArray(value: string) {
 
 function isSafeUrl(value: unknown) {
   try { const url = new URL(clean(value)); return url.protocol === "https:" || url.protocol === "http:"; } catch { return false; }
-}
-
-function isBilibiliUrl(value: unknown) {
-  try {
-    const url = new URL(clean(value));
-    if (url.protocol !== "https:" && url.protocol !== "http:") return false;
-    const host = url.hostname.toLowerCase();
-    return host === "bilibili.com" || host.endsWith(".bilibili.com") || host === "b23.tv" || host.endsWith(".b23.tv");
-  } catch {
-    return false;
-  }
 }
 
 function isStoredSubmissionUrl(value: unknown) {
