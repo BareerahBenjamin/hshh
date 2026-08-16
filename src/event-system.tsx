@@ -61,6 +61,15 @@ type JuryScoringConfig = { judges: string[]; teams: JuryTeam[]; dimensions: Jury
 type JuryTeamStat = { key: string; name: string; number: number; scoreCount: number; averageTotal: number | null; averages: Record<string, number | null> };
 type JuryDashboardData = JuryScoringConfig & { scoreCount: number; judgeProgress: Array<{ name: string; completedTeams: number; totalTeams: number }>; teamStats: JuryTeamStat[]; scores: JuryScore[] };
 
+const submissionUploadRules: Record<SubmissionUploadKind, { extensions: string[]; maxBytes: number }> = {
+  "pitch-source": { extensions: ["ppt", "pptx", "key"], maxBytes: 100 * 1024 * 1024 },
+  "pitch-pdf": { extensions: ["pdf"], maxBytes: 100 * 1024 * 1024 },
+  "pitch-html": { extensions: ["html", "htm"], maxBytes: 100 * 1024 * 1024 },
+  "prototype-three-views": { extensions: ["jpg", "jpeg", "png", "webp", "pdf"], maxBytes: 100 * 1024 * 1024 },
+  "poster-a4": { extensions: ["jpg", "jpeg", "png", "webp"], maxBytes: 100 * 1024 * 1024 },
+  "poster-booth": { extensions: ["jpg", "jpeg", "png", "webp"], maxBytes: 100 * 1024 * 1024 },
+};
+
 const emptyProject: ProjectForm = {
   projectName: "",
   teamName: "",
@@ -144,10 +153,21 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
 }
 
 async function uploadSubmissionFile(kind: SubmissionUploadKind, file: File): Promise<UploadedSubmissionFile> {
+  const rule = submissionUploadRules[kind];
+  const extension = file.name.split(".").pop()?.toLowerCase() || "";
+  if (!rule.extensions.includes(extension)) throw new Error(`文件格式不正确，仅支持 ${rule.extensions.map((item) => item.toUpperCase()).join(" / ")}。`);
+  if (file.size === 0) throw new Error("文件不能为空，请重新选择文件。");
+  if (file.size > rule.maxBytes) throw new Error(`文件实际大小为 ${(file.size / 1024 / 1024).toFixed(1)}MB，超过 ${Math.round(rule.maxBytes / 1024 / 1024)}MB 限制。`);
   const formData = new FormData();
   formData.set("kind", kind);
   formData.set("file", file);
-  const response = await fetch(`${apiBase}/api/submission-files`, { method: "POST", body: formData });
+  let response: Response;
+  try {
+    response = await fetch(`${apiBase}/api/submission-files`, { method: "POST", body: formData });
+  } catch (error) {
+    if (error instanceof TypeError) throw new Error("上传连接中断，请检查网络后重新选择文件上传。若仍持续出现，请用浏览器直接打开 hshh.online 后重试。");
+    throw error;
+  }
   const data = (await response.json().catch(() => ({}))) as { error?: string; url?: string; fileName?: string };
   if (!response.ok || !data.url || !data.fileName) throw new Error(data.error || "文件上传失败，请稍后重试");
   return { url: data.url, fileName: data.fileName };
@@ -349,8 +369,8 @@ export function ProjectSubmissionPage() {
               <EventField label="项目名称 *"><input value={form.projectName} onChange={(event) => set("projectName", event.target.value.slice(0, 80))} required /></EventField>
               <EventField label="团队名称 *" hint="这是两次提交的共同标识，请保持一致。"><input value={form.teamName} onChange={(event) => set("teamName", event.target.value.slice(0, 80))} required /></EventField>
             </div>
-            {/* <UploadField label="A4 产品宣发海报电子版 *" hint="适配笔记本电脑尺寸；支持 JPG / PNG / WebP，最大 10MB。" kind="poster-a4" accept=".jpg,.jpeg,.png,.webp,image/jpeg,image/png,image/webp" value={form.posterUrl} onUploaded={({ url }) => set("posterUrl", url)} />
-            <UploadField label="展位产品宣发海报电子版 *" hint="规格 0.8m × 2m，用于路演当天展位展示；支持 JPG / PNG / WebP，最大 10MB。" kind="poster-booth" accept=".jpg,.jpeg,.png,.webp,image/jpeg,image/png,image/webp" value={form.posterBoothUrl} onUploaded={({ url }) => set("posterBoothUrl", url)} /> */}
+            {/* <UploadField label="A4 产品宣发海报电子版 *" hint="适配笔记本电脑尺寸；支持 JPG / PNG / WebP，最大 100MB。" kind="poster-a4" accept=".jpg,.jpeg,.png,.webp,image/jpeg,image/png,image/webp" value={form.posterUrl} onUploaded={({ url }) => set("posterUrl", url)} />
+            <UploadField label="展位产品宣发海报电子版 *" hint="规格 0.8m × 2m，用于路演当天展位展示；支持 JPG / PNG / WebP，最大 100MB。" kind="poster-booth" accept=".jpg,.jpeg,.png,.webp,image/jpeg,image/png,image/webp" value={form.posterBoothUrl} onUploaded={({ url }) => set("posterBoothUrl", url)} /> */}
             {/* <label className="choice event-confirm"><input type="checkbox" checked={form.posterPrintConfirmed} onChange={(event) => set("posterPrintConfirmed", event.target.checked)} /><span>我确认已准备 A4 规格及 0.8m × 2m 规格的纸质海报。 *</span></label> */}
             {/* <div className="section-submit"><button className="btn primary" type="button" onClick={() => void submitPosters()} disabled={submitting !== null || posterSubmissionClosed}>{submitting === "poster" ? "海报提交中" : posterSubmissionClosed ? "海报提交已截止" : "提交两版海报"}</button><span>海报单独保存，不需要等待 Demo、视频或路演材料完成。</span></div> */}
             {/* {posterFeedback ? <div className={`section-feedback is-${posterFeedback.kind}`} role={posterFeedback.kind === "error" ? "alert" : "status"}>{posterFeedback.text}</div> : null} */}
@@ -371,7 +391,7 @@ export function ProjectSubmissionPage() {
           <div className="qa-stack">
             <EventField label="GitHub 链接 *"><input type="url" value={form.demoUrl} onChange={(event) => set("demoUrl", event.target.value.trim())} placeholder="https://..." required /></EventField>
             <EventField label="Demo 操作说明 *"><textarea value={form.demoInstructions} onChange={(event) => set("demoInstructions", event.target.value)} placeholder="从打开链接到展示核心功能的操作步骤；如依赖硬件或本地环境，请写清楚。" required /></EventField>
-            <UploadField label="硬件实物 / 原型（三视图）*" hint="请清楚展示正、侧、俯视图；支持 JPG / PNG / WebP / PDF，最大 20MB。" kind="prototype-three-views" accept=".jpg,.jpeg,.png,.webp,.pdf,image/jpeg,image/png,image/webp,application/pdf" value={form.prototypeThreeViewsUrl} onUploaded={({ url }) => set("prototypeThreeViewsUrl", url)} />
+            <UploadField label="硬件实物 / 原型（三视图）*" hint="请清楚展示正、侧、俯视图；支持 JPG / PNG / WebP / PDF，最大 100MB。" kind="prototype-three-views" accept=".jpg,.jpeg,.png,.webp,.pdf,image/jpeg,image/png,image/webp,application/pdf" value={form.prototypeThreeViewsUrl} onUploaded={({ url }) => set("prototypeThreeViewsUrl", url)} />
             <EventField label="Demo 产品概念视频 *" hint="3 分钟以内，展示核心功能与实际效果；提供可正常访问的视频链接即可。"><input type="url" value={form.demoVideoUrl} onChange={(event) => set("demoVideoUrl", event.target.value.trim())} placeholder="https://..." required /></EventField>
             <EventField label="Demo 硬件实物视频 *" hint="实物操作展示，展示硬件实物运行效果；提供可正常访问的视频链接即可。"><input type="url" value={form.demoHardwareVideoUrl} onChange={(event) => set("demoHardwareVideoUrl", event.target.value.trim())} placeholder="https://..." required /></EventField>
           </div>
@@ -379,10 +399,10 @@ export function ProjectSubmissionPage() {
         <EventSection index="04 / MATERIALS" title="路演材料" description="确保所有路演的材料都涵盖在内。">
           <div className="qa-stack">
             <div className="grid-2">
-              <UploadField label="Pitch PPT 原文件" hint="选传；支持 PPT / PPTX / Key，最大 30MB。" kind="pitch-source" accept=".ppt,.pptx,.key,application/vnd.ms-powerpoint,application/vnd.openxmlformats-officedocument.presentationml.presentation" value={form.pitchSourceUrl} onUploaded={({ url }) => set("pitchSourceUrl", url)} />
-              <UploadField label="Pitch PPT PDF 备份 *" hint="仅支持 PDF，最大 20MB。" kind="pitch-pdf" accept=".pdf,application/pdf" value={form.pitchPdfUrl} onUploaded={({ url }) => set("pitchPdfUrl", url)} />
+              <UploadField label="Pitch PPT 原文件" hint="选传；支持 PPT / PPTX / Key，最大 100MB。" kind="pitch-source" accept=".ppt,.pptx,.key,application/vnd.ms-powerpoint,application/vnd.openxmlformats-officedocument.presentationml.presentation" value={form.pitchSourceUrl} onUploaded={({ url }) => set("pitchSourceUrl", url)} />
+              <UploadField label="Pitch PPT PDF 备份 *" hint="仅支持 PDF，最大 100MB。" kind="pitch-pdf" accept=".pdf,application/pdf" value={form.pitchPdfUrl} onUploaded={({ url }) => set("pitchPdfUrl", url)} />
             </div>
-            <UploadField label="Pitch HTML 文件" hint="选传；支持 HTML / HTM，最大 30MB。" kind="pitch-html" accept=".html,.htm,text/html" value={form.pitchHtmlUrl} onUploaded={({ url }) => set("pitchHtmlUrl", url)} />
+            <UploadField label="Pitch HTML 文件" hint="选传；支持 HTML / HTM，最大 100MB。" kind="pitch-html" accept=".html,.htm,text/html" value={form.pitchHtmlUrl} onUploaded={({ url }) => set("pitchHtmlUrl", url)} />
           </div>
         </EventSection>
           </>

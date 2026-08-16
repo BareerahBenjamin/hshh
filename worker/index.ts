@@ -509,12 +509,12 @@ async function submitProjectPosters(request: Request, env: WorkerEnv) {
 type SubmissionFileKind = "pitch-source" | "pitch-pdf" | "pitch-html" | "prototype-three-views" | "poster-a4" | "poster-booth";
 
 const submissionFileRules: Record<SubmissionFileKind, { extensions: string[]; maxBytes: number; label: string }> = {
-  "pitch-source": { extensions: ["ppt", "pptx", "key"], maxBytes: 30 * 1024 * 1024, label: "Pitch PPT 原文件" },
-  "pitch-pdf": { extensions: ["pdf"], maxBytes: 20 * 1024 * 1024, label: "Pitch PPT PDF 备份" },
-  "pitch-html": { extensions: ["html", "htm"], maxBytes: 30 * 1024 * 1024, label: "Pitch HTML 文件" },
-  "prototype-three-views": { extensions: ["jpg", "jpeg", "png", "webp", "pdf"], maxBytes: 20 * 1024 * 1024, label: "硬件实物 / 原型（三视图）" },
-  "poster-a4": { extensions: ["jpg", "jpeg", "png", "webp"], maxBytes: 10 * 1024 * 1024, label: "A4 产品宣发海报电子版" },
-  "poster-booth": { extensions: ["jpg", "jpeg", "png", "webp"], maxBytes: 10 * 1024 * 1024, label: "0.8m × 2m 展位海报电子版" },
+  "pitch-source": { extensions: ["ppt", "pptx", "key"], maxBytes: 100 * 1024 * 1024, label: "Pitch PPT 原文件" },
+  "pitch-pdf": { extensions: ["pdf"], maxBytes: 100 * 1024 * 1024, label: "Pitch PPT PDF 备份" },
+  "pitch-html": { extensions: ["html", "htm"], maxBytes: 100 * 1024 * 1024, label: "Pitch HTML 文件" },
+  "prototype-three-views": { extensions: ["jpg", "jpeg", "png", "webp", "pdf"], maxBytes: 100 * 1024 * 1024, label: "硬件实物 / 原型（三视图）" },
+  "poster-a4": { extensions: ["jpg", "jpeg", "png", "webp"], maxBytes: 100 * 1024 * 1024, label: "A4 产品宣发海报电子版" },
+  "poster-booth": { extensions: ["jpg", "jpeg", "png", "webp"], maxBytes: 100 * 1024 * 1024, label: "0.8m × 2m 展位海报电子版" },
 };
 
 async function uploadSubmissionFile(request: Request, env: WorkerEnv) {
