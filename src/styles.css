@@ -1992,6 +1992,17 @@ textarea:focus {
   color: #11543a;
 }
 
+.jury-team-card.is-voted {
+  border-color: #176b4c;
+  background: #f0faf6;
+}
+
+.jury-team-card.is-voted .jury-team-card__head > b.is-saved {
+  border-color: #176b4c;
+  background: #176b4c;
+  color: #fff;
+}
+
 .jury-dimension-grid {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));

@@ -582,8 +582,10 @@ async function verifyVoter(request: Request, env: WorkerEnv) {
   const audience = await findAudience(identity, env);
   if (!audience) return json({ eligible: false, alreadyVoted: false, message: "没有找到报名记录，请联系现场工作人员。" }, 404);
   if (audience.status !== "submitted") return json({ eligible: false, alreadyVoted: false, message: "当前报名状态无效，请联系现场工作人员。" }, 403);
-  const vote = await env.DB.prepare("SELECT id FROM audience_project_votes WHERE audience_id = ? LIMIT 1").bind(audience.id).first<{ id: string }>();
-  return json({ eligible: !vote, alreadyVoted: Boolean(vote) });
+  const vote = await env.DB.prepare("SELECT candidate_key FROM audience_project_votes WHERE audience_id = ? LIMIT 1").bind(audience.id).first<{ candidate_key: string }>();
+  if (!vote) return json({ eligible: true, alreadyVoted: false });
+  const votedCandidate = votingCandidates().find((candidate) => candidate.id === vote.candidate_key) || null;
+  return json({ eligible: false, alreadyVoted: true, votedCandidate });
 }
 
 async function castVote(request: Request, env: WorkerEnv) {
@@ -998,7 +1000,7 @@ async function adminExportVotes(request: Request, env: WorkerEnv) {
 async function getVotingConfig(env: WorkerEnv) {
   const config = await env.DB.prepare("SELECT is_open, starts_at, ends_at FROM voting_config WHERE id = 1 LIMIT 1").first<VotingConfigRow>();
   if (config) return config;
-  return { is_open: 0, starts_at: null, ends_at: null };
+  return { is_open: 1, starts_at: null, ends_at: null };
 }
 
 function votingConfigResponse(config: VotingConfigRow) {

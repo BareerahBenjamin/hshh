@@ -318,10 +318,10 @@ export function ProjectSubmissionPage() {
   const submitPosters = async () => {
     setMessage("");
     setPosterFeedback(null);
-    if (posterSubmissionClosed) {
-      setPosterFeedback({ kind: "error", text: "两版电子海报提交已于 8 月 15 日 14:00 截止。" });
-      return;
-    }
+    // if (posterSubmissionClosed) {
+    //   setPosterFeedback({ kind: "error", text: "两版电子海报提交已于 8 月 15 日 14:00 截止。" });
+    //   return;
+    // }
     if (!form.projectName.trim() || !form.teamName.trim()) {
       setPosterFeedback({ kind: "error", text: "请先填写项目名称和团队名称，再提交海报。" });
       return;
@@ -343,17 +343,17 @@ export function ProjectSubmissionPage() {
         {step === 1 ? (
           <>
         <EventSection index="01 / POSTER" title="基本信息" description="先提交两版海报即可；只需要填写下方的项目名称和团队名称，用于后续合并作品材料。">
-          <div className="deadline-banner" role="note"><span>两版电子海报提交截止</span><strong>8 月 15 日 14:00</strong><p>请在截止前上传 A4 与展位尺寸电子版；逾期海报无法进入全场 Dashboard 和路演展位展示。</p>{posterSubmissionClosed ? <b className="deadline-banner__closed">提交已截止</b> : null}</div>
+          {/* <div className="deadline-banner" role="note"><span>两版电子海报提交截止</span><strong>8 月 15 日 14:00</strong><p>请在截止前上传 A4 与展位尺寸电子版；逾期海报无法进入全场 Dashboard 和路演展位展示。</p>{posterSubmissionClosed ? <b className="deadline-banner__closed">提交已截止</b> : null}</div> */}
           <div className="qa-stack">
             <div className="grid-2 project-info-grid">
               <EventField label="项目名称 *"><input value={form.projectName} onChange={(event) => set("projectName", event.target.value.slice(0, 80))} required /></EventField>
               <EventField label="团队名称 *" hint="这是两次提交的共同标识，请保持一致。"><input value={form.teamName} onChange={(event) => set("teamName", event.target.value.slice(0, 80))} required /></EventField>
             </div>
-            <UploadField label="A4 产品宣发海报电子版 *" hint="适配笔记本电脑尺寸；支持 JPG / PNG / WebP，最大 10MB。" kind="poster-a4" accept=".jpg,.jpeg,.png,.webp,image/jpeg,image/png,image/webp" value={form.posterUrl} onUploaded={({ url }) => set("posterUrl", url)} />
-            <UploadField label="展位产品宣发海报电子版 *" hint="规格 0.8m × 2m，用于路演当天展位展示；支持 JPG / PNG / WebP，最大 10MB。" kind="poster-booth" accept=".jpg,.jpeg,.png,.webp,image/jpeg,image/png,image/webp" value={form.posterBoothUrl} onUploaded={({ url }) => set("posterBoothUrl", url)} />
-            <label className="choice event-confirm"><input type="checkbox" checked={form.posterPrintConfirmed} onChange={(event) => set("posterPrintConfirmed", event.target.checked)} /><span>我确认已准备 A4 规格及 0.8m × 2m 规格的纸质海报。 *</span></label>
-            <div className="section-submit"><button className="btn primary" type="button" onClick={() => void submitPosters()} disabled={submitting !== null || posterSubmissionClosed}>{submitting === "poster" ? "海报提交中" : posterSubmissionClosed ? "海报提交已截止" : "提交两版海报"}</button><span>海报单独保存，不需要等待 Demo、视频或路演材料完成。</span></div>
-            {posterFeedback ? <div className={`section-feedback is-${posterFeedback.kind}`} role={posterFeedback.kind === "error" ? "alert" : "status"}>{posterFeedback.text}</div> : null}
+            {/* <UploadField label="A4 产品宣发海报电子版 *" hint="适配笔记本电脑尺寸；支持 JPG / PNG / WebP，最大 10MB。" kind="poster-a4" accept=".jpg,.jpeg,.png,.webp,image/jpeg,image/png,image/webp" value={form.posterUrl} onUploaded={({ url }) => set("posterUrl", url)} />
+            <UploadField label="展位产品宣发海报电子版 *" hint="规格 0.8m × 2m，用于路演当天展位展示；支持 JPG / PNG / WebP，最大 10MB。" kind="poster-booth" accept=".jpg,.jpeg,.png,.webp,image/jpeg,image/png,image/webp" value={form.posterBoothUrl} onUploaded={({ url }) => set("posterBoothUrl", url)} /> */}
+            {/* <label className="choice event-confirm"><input type="checkbox" checked={form.posterPrintConfirmed} onChange={(event) => set("posterPrintConfirmed", event.target.checked)} /><span>我确认已准备 A4 规格及 0.8m × 2m 规格的纸质海报。 *</span></label> */}
+            {/* <div className="section-submit"><button className="btn primary" type="button" onClick={() => void submitPosters()} disabled={submitting !== null || posterSubmissionClosed}>{submitting === "poster" ? "海报提交中" : posterSubmissionClosed ? "海报提交已截止" : "提交两版海报"}</button><span>海报单独保存，不需要等待 Demo、视频或路演材料完成。</span></div> */}
+            {/* {posterFeedback ? <div className={`section-feedback is-${posterFeedback.kind}`} role={posterFeedback.kind === "error" ? "alert" : "status"}>{posterFeedback.text}</div> : null} */}
           </div>
         </EventSection>
         <EventSection index="02 / PROJECT" title="项目信息" description="海报已提交后，再补充作品信息，让评委和现场观众快速理解妳们要解决的问题与作品价值。">
@@ -563,8 +563,8 @@ export function ProjectAdminPage() {
   return (
     <div className="admin-page project-admin-page">
       <header className="admin-head">
-        <div><div className="lead-kicker">admin.projects()</div><h1>项目提交后台</h1><p className="admin-head__note">两版电子海报截止：8 月 15 日 14:00。A4 版用于笔记本展示，0.8m × 2m 版用于路演展位。</p></div>
-        <div className="admin-head__actions"><button className="btn inline-link" type="button" onClick={() => void downloadAllArchives("posters")} disabled={bulkDownloading !== null}>{bulkDownloading === "posters" ? "正在打包海报" : "下载已提交两版海报"}</button><button className="btn inline-link" type="button" onClick={() => void downloadAllArchives("materials")} disabled={bulkDownloading !== null}>{bulkDownloading === "materials" ? "正在打包路演材料" : "下载已提交路演材料"}</button><a className="btn inline-link" href="/admin/judging">评委评分统计</a><a className="btn inline-link" href="/admin/events">赛事投票后台</a><a className="btn inline-link" href="/admin">报名后台</a></div>
+        {/* <div><div className="lead-kicker">admin.projects()</div><h1>项目提交后台</h1><p className="admin-head__note">两版电子海报截止：8 月 15 日 14:00。A4 版用于笔记本展示，0.8m × 2m 版用于路演展位。</p></div> */}
+        {/* <div className="admin-head__actions"><button className="btn inline-link" type="button" onClick={() => void downloadAllArchives("posters")} disabled={bulkDownloading !== null}>{bulkDownloading === "posters" ? "正在打包海报" : "下载已提交两版海报"}</button><button className="btn inline-link" type="button" onClick={() => void downloadAllArchives("materials")} disabled={bulkDownloading !== null}>{bulkDownloading === "materials" ? "正在打包路演材料" : "下载已提交路演材料"}</button><a className="btn inline-link" href="/admin/judging">评委评分统计</a><a className="btn inline-link" href="/admin/events">观众投票后台</a><a className="btn inline-link" href="/admin">报名后台</a></div> */}
       </header>
       <div className="admin-toolbar">
         <input value={query} onChange={(event) => setQuery(event.target.value)} onKeyDown={(event) => { if (event.key === "Enter") void load(); }} placeholder="搜索项目名称 / 团队名称" />
@@ -693,8 +693,8 @@ export function VotingPage() {
   const [verified, setVerified] = useState(false);
   const [voting, setVoting] = useState<VotingConfig | null>(null);
   const [candidates, setCandidates] = useState<VotingCandidate[]>([]);
-  const [selectedId, setSelectedId] = useState("");
   const [pending, setPending] = useState<VotingCandidate | null>(null);
+  const [votedCandidate, setVotedCandidate] = useState<VotingCandidate | null>(null);
   const [message, setMessage] = useState("");
   const [loading, setLoading] = useState(false);
   const [notice, setNotice] = useState<{ title: string; text: string; toAudience: boolean } | null>(null);
@@ -712,9 +712,15 @@ export function VotingPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ phone: identity.phone }),
       });
-      const data = (await response.json().catch(() => ({}))) as { eligible?: boolean; alreadyVoted?: boolean };
-      if (response.ok && data.alreadyVoted) { setNotice({ title: "投票提示", text: "你已完成投票，每位观众仅可投票一次。", toAudience: false }); return; }
-      if (response.ok && data.eligible) { setVerified(true); await loadProjects(); return; }
+      const data = (await response.json().catch(() => ({}))) as { eligible?: boolean; alreadyVoted?: boolean; votedCandidate?: VotingCandidate | null };
+      if (response.ok && data.alreadyVoted) {
+        setVotedCandidate(data.votedCandidate || null);
+        setVerified(true);
+        await loadProjects();
+        setMessage("你已完成投票，每位观众仅可投票一次。你投给了「" + (data.votedCandidate?.name || "未知作品") + "」。");
+        return;
+      }
+      if (response.ok && data.eligible) { setVerified(true); setVotedCandidate(null); await loadProjects(); return; }
       setNotice({ title: "身份验证未通过", text: "身份验证未通过，请先完成观众报名。", toAudience: true });
     } catch (error) { setNotice({ title: "身份验证未通过", text: "身份验证未通过，请先完成观众报名。", toAudience: true }); } finally { setLoading(false); }
   };
@@ -723,7 +729,7 @@ export function VotingPage() {
     setLoading(true); setMessage("");
     try {
       await request<{ ok: boolean }>("/api/votes", { method: "POST", body: JSON.stringify({ identity, candidateId: pending.id }) });
-      setPending(null); setSelectedId(""); setVerified(false); setMessage("投票成功，感谢参与。");
+      setVotedCandidate(pending); setPending(null); setVerified(false); setMessage("投票成功，感谢参与。你投给了「" + pending.name + "」。");
     } catch (error) { setPending(null); setMessage(error instanceof Error ? error.message : "投票失败"); } finally { setLoading(false); }
   };
 
@@ -736,10 +742,17 @@ export function VotingPage() {
         </form>
       </EventSection>
       {message ? <div className="event-message" role="status">{message}</div> : null}
-      {verified ? <EventSection index="02 / VOTE" title="选择妳最喜爱的作品" description={voting?.isOpen ? "请从 18 个项目中选择一项，确认后不可修改。" : "投票尚未开始或已结束。"}>
-        {!voting?.isOpen ? <p className="event-empty">投票尚未开始或已经结束，请以现场通知为准。</p> : null}
-        {voting?.isOpen && candidates.length === 0 ? <p className="event-empty">投票名单准备中，请稍后刷新。</p> : null}
-        {voting?.isOpen && candidates.length ? <div className="event-form vote-select-form"><EventField label="选择一个项目"><select value={selectedId} onChange={(event) => setSelectedId(event.target.value)} required><option value="" disabled>请选择项目</option>{candidates.map((candidate) => <option key={candidate.id} value={candidate.id}>#{String(candidate.number).padStart(2, "0")} {candidate.name}</option>)}</select></EventField><div className="event-actions"><button className="btn primary" type="button" disabled={!selectedId || loading} onClick={() => setPending(candidates.find((candidate) => candidate.id === selectedId) || null)}>确认投票</button></div></div> : null}
+      {verified ? <EventSection index="02 / VOTE" title={votedCandidate ? "我的投票" : "选择妳最喜爱的作品"} description={votedCandidate ? "你已完成投票，每位观众仅有一票，提交后不可修改。你投给了「" + votedCandidate.name + "」。已投票作品以高亮标注。" : "每位观众仅有一票，请从下面的作品中选出一项，确认后不可修改。"}>
+        {!voting?.isOpen ? <p className="event-message" role="status">当前投票尚未开启，可先浏览作品；开启后即可投票。</p> : null}
+        {candidates.length === 0 ? <p className="event-empty">投票名单准备中，请稍后刷新。</p> : null}
+        {candidates.length ? <div className="jury-score-list">
+          {[...candidates].sort((a, b) => Number(votedCandidate && b.id === votedCandidate.id) - Number(votedCandidate && a.id === votedCandidate.id)).map((candidate) => (
+            <article className={"jury-team-card" + (votedCandidate && votedCandidate.id === candidate.id ? " is-voted" : "")} key={candidate.id}>
+              <header className="jury-team-card__head"><div><span>#{String(candidate.number).padStart(2, "0")}</span><h3>{candidate.name}</h3></div>{votedCandidate && votedCandidate.id === candidate.id ? <b className="is-saved">已投</b> : null}</header>
+              <footer className="jury-team-card__foot"><div><span>作品编号</span><strong>#{String(candidate.number).padStart(2, "0")} {candidate.name}</strong></div>{!votedCandidate ? <button className="btn primary" type="button" disabled={loading} onClick={() => setPending(candidate)}>投 TA 一票</button> : null}</footer>
+            </article>
+          ))}
+        </div> : null}
       </EventSection> : null}
       <VoteConfirmModal project={pending} loading={loading} onClose={() => setPending(null)} onConfirm={() => void vote()} />
       {notice ? <NoticeModal title={notice.title} message={notice.text} actionLabel={notice.toAudience ? "去报名" : "知道了"} onAction={() => { if (notice.toAudience) { window.location.assign("/audience"); } else { setNotice(null); } }} /> : null}
@@ -766,7 +779,7 @@ export function EventAdminDashboard() {
   useEffect(() => { void load(); }, []);
   const updateConfig = async (isOpen: boolean) => { setLoading(true); try { await request("/api/admin/voting-config", { method: "PUT", body: JSON.stringify({ isOpen }) }); await load(); } catch (error) { setMessage(error instanceof Error ? error.message : "更新失败"); } finally { setLoading(false); } };
   const exportVotes = () => { window.location.assign(`${apiBase}/api/admin/votes/export.csv`); };
-  return <div className="admin-page event-admin"><header className="admin-head"><div><div className="lead-kicker">admin.event()</div><h1>赛事与投票后台</h1></div><div className="admin-head__actions"><a className="btn inline-link" href="/admin/judging">评委评分统计</a><button className="btn primary" type="button" onClick={exportVotes}>导出投票 CSV</button></div></header>{message ? <div className="admin-error">{message}</div> : null}{data ? <><section className="admin-event-stats"><div><strong>{data.stats.eligibleAudience}</strong><span>已报名观众</span></div><div><strong>{data.stats.votedAudience}</strong><span>已投票</span></div><div><strong>{data.stats.voteRate}%</strong><span>投票率</span></div><div><strong>{data.config.isOpen ? "进行中" : "已关闭"}</strong><span>投票状态</span></div></section><div className="admin-toolbar"><button className="btn primary" type="button" disabled={loading || data.config.isOpen} onClick={() => void updateConfig(true)}>开启投票</button><button className="btn" type="button" disabled={loading || !data.config.isOpen} onClick={() => void updateConfig(false)}>关闭投票</button><button className="btn" type="button" onClick={() => void load()}>刷新数据</button></div><div className="admin-table-wrap"><table className="admin-table admin-event-table"><thead><tr><th>编号</th><th>投票项目</th><th>有效票数</th></tr></thead><tbody>{data.candidates.map((candidate) => <tr key={candidate.id}><td>#{String(candidate.number).padStart(2, "0")}</td><td>{candidate.name}</td><td>{candidate.validVotes || 0}</td></tr>)}</tbody></table></div></> : <p className="event-empty">正在读取赛事数据…</p>}</div>;
+  return <div className="admin-page event-admin"><header className="admin-head"><div><div className="lead-kicker">admin.event()</div><h1>观众投票后台</h1></div><div className="admin-head__actions"><a className="btn inline-link" href="/admin/judging">评委评分统计</a><button className="btn primary" type="button" onClick={exportVotes}>导出投票 CSV</button></div></header>{message ? <div className="admin-error">{message}</div> : null}{data ? <><section className="admin-event-stats"><div><strong>{data.stats.eligibleAudience}</strong><span>已报名观众</span></div><div><strong>{data.stats.votedAudience}</strong><span>已投票</span></div><div><strong>{data.stats.voteRate}%</strong><span>投票率</span></div><div><strong>{data.config.isOpen ? "进行中" : "已关闭"}</strong><span>投票状态</span></div></section><div className="admin-toolbar"><button className="btn primary" type="button" disabled={loading || data.config.isOpen} onClick={() => void updateConfig(true)}>开启投票</button><button className="btn" type="button" disabled={loading || !data.config.isOpen} onClick={() => void updateConfig(false)}>关闭投票</button><button className="btn" type="button" onClick={() => void load()}>刷新数据</button></div>      <div className="admin-table-wrap"><table className="admin-table admin-event-table"><thead><tr><th>排名</th><th>编号</th><th>投票项目</th><th>有效票数</th><th>得票率</th></tr></thead><tbody>{[...data.candidates].sort((a, b) => (b.validVotes || 0) - (a.validVotes || 0)).map((candidate, index) => <tr key={candidate.id}><td>#{(candidate.validVotes || 0) > 0 ? index + 1 : "-"}</td><td>#{String(candidate.number).padStart(2, "0")}</td><td>{candidate.name}</td><td><strong>{candidate.validVotes || 0}</strong></td><td>{data.stats.votedAudience ? Math.round(((candidate.validVotes || 0) / data.stats.votedAudience) * 100) + "%" : "-"}</td></tr>)}</tbody></table></div></> : <p className="event-empty">正在读取赛事数据…</p>}</div>;
 }
 
 function scoreText(value: number | null | undefined) {
@@ -892,7 +905,7 @@ export function JuryAdminDashboard() {
   const scoredTeams = data?.teamStats.filter((team) => team.scoreCount > 0).length || 0;
 
   return <div className="admin-page jury-admin-page">
-    <header className="admin-head"><div><div className="lead-kicker">admin.judging()</div><h1>评委评分统计</h1><p className="admin-head__note">共 18 支队伍、6 位评委、6 个评分维度，总分 100 分。</p></div><div className="admin-head__actions"><a className="btn inline-link" href="/judge">进入评委评分页</a><a className="btn inline-link" href="/admin/events">赛事投票后台</a><button className="btn primary" type="button" onClick={exportCsv}>导出评分 CSV</button></div></header>
+    <header className="admin-head"><div><div className="lead-kicker">admin.judging()</div><h1>评委评分统计</h1><p className="admin-head__note">共 18 支队伍、6 位评委、6 个评分维度，总分 100 分。</p></div><div className="admin-head__actions"><a className="btn inline-link" href="/judge">进入评委评分页</a><a className="btn inline-link" href="/admin/events">观众投票后台</a><button className="btn primary" type="button" onClick={exportCsv}>导出评分 CSV</button></div></header>
     {message ? <div className="admin-error">{message}</div> : null}
     {data ? <>
       <section className="admin-event-stats jury-admin-stats"><div><strong>{data.scoreCount}</strong><span>已保存评分</span></div><div><strong>{completedJudges} / {data.judges.length}</strong><span>完成全部评分的评委</span></div><div><strong>{scoredTeams} / {data.teams.length}</strong><span>已有评分的队伍</span></div></section>

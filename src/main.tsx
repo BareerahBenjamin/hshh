@@ -1158,7 +1158,7 @@ function AdminRegistrations() {
           <div className="lead-kicker">admin.dashboard()</div>
           <h1>报名后台</h1>
         </div>
-        <div className="admin-head__actions"><a className="btn inline-link" href="/admin/projects">项目提交后台</a><a className="btn inline-link" href="/admin/judging">评委评分统计</a><a className="btn inline-link" href="/admin/events">赛事投票后台</a><button className="btn primary" type="button" onClick={() => void downloadCsv()} disabled={exporting}>{exporting ? "导出中" : "导出 CSV"}</button></div>
+        <div className="admin-head__actions"><a className="btn inline-link" href="/admin/projects">项目提交后台</a><a className="btn inline-link" href="/admin/judging">评委评分统计</a><a className="btn inline-link" href="/admin/events">观众投票后台</a><button className="btn primary" type="button" onClick={() => void downloadCsv()} disabled={exporting}>{exporting ? "导出中" : "导出 CSV"}</button></div>
       </header>
       <div className="admin-toolbar">
         <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="搜索姓名 / 邮箱 / 手机 / 微信 / 城市" />

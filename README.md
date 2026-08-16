@@ -17,7 +17,7 @@ HsHH 线上赛事系统。当前包含观众报名、作品与海报提交、公
 | 志愿者贡献 | `/volunteers` | 志愿者贡献信息页 |
 | 报名后台 | `/admin` | 报名记录、详情、删除、CSV 导出 |
 | 项目后台 | `/admin/projects` | 项目与海报材料、文件下载、ZIP 打包 |
-| 赛事投票后台 | `/admin/events` | 投票开关、实时票数、投票 CSV 导出 |
+| 观众投票后台 | `/admin/events` | 投票开关、实时票数、投票 CSV 导出 |
 | 评分统计后台 | `/admin/judging` | 评委进度、项目均分、评分 CSV 导出 |
 
 `/admin*` 在线上由 Cloudflare Access 保护；本地开发不启用 Access。
