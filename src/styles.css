@@ -1283,6 +1283,77 @@ textarea:focus {
   min-height: 76px;
 }
 
+.marketing-part {
+  display: grid;
+  gap: 12px;
+  padding: 16px;
+  border: 2px solid var(--line);
+  background: #fff;
+  color: var(--ink);
+}
+
+.marketing-part__head {
+  display: grid;
+  gap: 6px;
+}
+
+.marketing-part h3,
+.marketing-part p {
+  margin: 0;
+}
+
+.marketing-part h3 {
+  font-size: 16px;
+  line-height: 1.2;
+}
+
+.marketing-part__head p,
+.marketing-part .hint {
+  color: rgba(21, 0, 19, 0.7);
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1.5;
+}
+
+.marketing-part .qa-options {
+  gap: 8px;
+}
+
+.marketing-part .qa-options .choice,
+.marketing-part .qa-options .choice span {
+  color: var(--ink);
+  font-size: 13px;
+  font-weight: 400;
+  line-height: 1.45;
+}
+
+.digikey-copy-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 14px;
+}
+
+.digikey-title {
+  font-size: 14px;
+  font-weight: 800;
+  line-height: 1.5;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.digikey-body {
+  margin: 0;
+  padding: 14px 16px;
+  border: 2px solid var(--line);
+  background: rgba(21, 0, 19, 0.04);
+  font-family: inherit;
+  font-size: 12px;
+  line-height: 1.7;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
 .deadline-banner {
   display: grid;
   gap: 6px;
